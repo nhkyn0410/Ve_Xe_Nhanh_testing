@@ -105,7 +105,7 @@ Nguồn tham chiếu chính:
 - [~] Cân lại sidebar xác nhận vé: giảm padding/cỡ chữ card liên hệ nhà xe, điểm đón-trả và thêm chế độ compact cho `RouteMiniMap`; cần smoke test responsive.
 - [~] Chỉnh card sidebar xác nhận vé chỉ hiển thị điểm đón, nút chỉ đường và bản đồ vuông; ưu tiên OpenStreetMap cho vị trí lên xe, fallback sơ đồ tuyến khi thiếu tọa độ.
 - [~] Giữ luồng tạo booking và payment hiện có - đã thiết kế lại bước chọn phương thức thanh toán trong `PassengerInfoPage.jsx` theo layout phương thức/ngân hàng/tóm tắt đơn; vẫn gọi `createPayment` endpoint hiện có và map online methods qua VNPay.
-- [x] Gắn logo thật cho payment method và bank selector trong `PassengerInfoPage.jsx` từ `frontend/src/assets/payment-logos/` và `payment-logos/banks/`; đã chỉnh riêng VIB để logo không bị cắt và tăng zoom logo Tiền mặt; `npm.cmd run build` trong `frontend/` thành công.
+- [x] Gắn logo thật cho payment method và bank selector trong `PassengerInfoPage.jsx` từ `frontend/src/assets/payment-logos/` và `payment-logos/banks/`; đã chỉnh riêng VIB để logo không bị cắt, tăng kích thước logo ATM và cân lại logo Tiền mặt để không tràn viền trong card thanh toán; `npm.cmd run build` trong `frontend/` thành công.
 - [ ] Nâng cấp các trang `VNPayReturn`, `BookingSuccess`, `BookingFailure`.
 - [ ] Bảo đảm callback payment không bị đổi route ngoài `App.jsx`.
 - [ ] Kiểm tra happy path: search -> trip detail -> seat -> passenger -> payment.
