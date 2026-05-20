@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Form, Input, InputNumber, message, Divider, Button, Dropdown } from 'antd';
+import {
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  message,
+  Divider,
+  Button,
+  Dropdown,
+  Select as AntSelect,
+} from 'antd';
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
-import { routesApi } from '../../services/operatorApi';
+import { routesApi, stopsApi } from '../../services/operatorApi';
 import {
   PageHeader,
   Btn,
@@ -15,6 +25,26 @@ import {
 } from '../../components/operator/vxn';
 
 const PAGE_SIZE = 10;
+
+const STOP_TYPE_LABEL = {
+  bus_station: 'Bến xe',
+  rest_stop: 'Trạm dừng chân',
+  office: 'Văn phòng',
+  roadside: 'Điểm đón/trả dọc đường',
+  other: 'Khác',
+};
+
+const getPointValue = (point, fallback) => (point?.stopId ? String(point.stopId) : fallback);
+
+const getStopOptionLabel = (stop) =>
+  [stop.name, stop.address, stop.city || stop.province].filter(Boolean).join(' · ');
+
+const snapshotFromCatalogStop = (stop) => ({
+  stopId: stop._id,
+  name: stop.name,
+  address: stop.address,
+  coordinates: stop.coordinates,
+});
 
 /** Map a repo Route document onto the design's flat route shape. */
 const mapRoute = (r) => ({
@@ -38,6 +68,9 @@ const mapRoute = (r) => ({
 const RoutesPage = () => {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [catalogStops, setCatalogStops] = useState([]);
+  const [stopsLoading, setStopsLoading] = useState(false);
+  const [legacyPointMap, setLegacyPointMap] = useState({});
 
   // Filters / sort / paging (faithful to design view-routes.jsx)
   const [q, setQ] = useState('');
@@ -53,6 +86,7 @@ const RoutesPage = () => {
 
   useEffect(() => {
     loadRoutes();
+    loadStops();
   }, []);
 
   const loadRoutes = async () => {
@@ -67,7 +101,42 @@ const RoutesPage = () => {
     }
   };
 
+  const loadStops = async () => {
+    setStopsLoading(true);
+    try {
+      const response = await stopsApi.getStops({ limit: 500 });
+      setCatalogStops(response?.data?.stops || []);
+    } catch (error) {
+      message.error(typeof error === 'string' ? error : 'Không thể tải danh mục điểm dừng');
+    } finally {
+      setStopsLoading(false);
+    }
+  };
+
   const mapped = useMemo(() => routes.map(mapRoute), [routes]);
+
+  const stopById = useMemo(
+    () => new Map(catalogStops.map((stop) => [String(stop._id), stop])),
+    [catalogStops]
+  );
+
+  const stopOptions = useMemo(() => {
+    const legacyOptions = Object.entries(legacyPointMap).map(([value, point]) => ({
+      value,
+      label: `${point.name || point.address || 'Điểm cũ'} (chưa có trong danh mục)`,
+    }));
+
+    return [
+      ...catalogStops.map((stop) => ({
+        value: String(stop._id),
+        label: `${getStopOptionLabel(stop)} · ${STOP_TYPE_LABEL[stop.type] || 'Điểm dừng'}${
+          stop.status === 'inactive' ? ' (Ngừng)' : ''
+        }`,
+        disabled: stop.status === 'inactive',
+      })),
+      ...legacyOptions,
+    ];
+  }, [catalogStops, legacyPointMap]);
 
   const fromOptions = useMemo(() => {
     const cities = [...new Set(mapped.map((r) => r.from).filter((c) => c && c !== '—'))].sort(
@@ -126,17 +195,40 @@ const RoutesPage = () => {
   // ---------- CRUD ----------
   const handleCreate = () => {
     setEditingRoute(null);
+    setLegacyPointMap({});
     form.resetFields();
     form.setFieldsValue({
-      pickupPoints: [{ name: '', address: '' }],
-      dropoffPoints: [{ name: '', address: '' }],
-      stops: [],
+      pickupStopIds: [],
+      dropoffStopIds: [],
+      journeyStops: [],
     });
     setModalVisible(true);
   };
 
   const handleEdit = (record) => {
     setEditingRoute(record);
+    const nextLegacyPointMap = {};
+    const pickupStopIds = (record.pickupPoints || []).map((point, index) => {
+      const value = getPointValue(point, `legacy:pickup:${index}`);
+      if (!point.stopId) nextLegacyPointMap[value] = point;
+      return value;
+    });
+    const dropoffStopIds = (record.dropoffPoints || []).map((point, index) => {
+      const value = getPointValue(point, `legacy:dropoff:${index}`);
+      if (!point.stopId) nextLegacyPointMap[value] = point;
+      return value;
+    });
+    const journeyStops = (record.stops || []).map((stop, index) => {
+      const value = getPointValue(stop, `legacy:journey:${index}`);
+      if (!stop.stopId) nextLegacyPointMap[value] = stop;
+      return {
+        stopId: value,
+        estimatedArrivalMinutes: stop.estimatedArrivalMinutes,
+        stopDuration: stop.stopDuration || 15,
+      };
+    });
+
+    setLegacyPointMap(nextLegacyPointMap);
     form.setFieldsValue({
       routeName: record.routeName,
       routeCode: record.routeCode,
@@ -144,15 +236,9 @@ const RoutesPage = () => {
       originCity: record.origin?.city,
       destinationProvince: record.destination?.province,
       destinationCity: record.destination?.city,
-      pickupPoints:
-        record.pickupPoints && record.pickupPoints.length > 0
-          ? record.pickupPoints
-          : [{ name: '', address: '' }],
-      dropoffPoints:
-        record.dropoffPoints && record.dropoffPoints.length > 0
-          ? record.dropoffPoints
-          : [{ name: '', address: '' }],
-      stops: record.stops || [],
+      pickupStopIds,
+      dropoffStopIds,
+      journeyStops,
       distance: record.distance,
       estimatedDuration: record.estimatedDuration,
       basePrice: record.basePrice,
@@ -160,31 +246,87 @@ const RoutesPage = () => {
     setModalVisible(true);
   };
 
+  const resolveSelectedPoint = (value) => {
+    const catalogStop = stopById.get(String(value));
+    if (catalogStop) return snapshotFromCatalogStop(catalogStop);
+
+    const legacyPoint = legacyPointMap[value];
+    if (legacyPoint) {
+      return {
+        stopId: legacyPoint.stopId,
+        name: legacyPoint.name,
+        address: legacyPoint.address,
+        coordinates: legacyPoint.coordinates,
+      };
+    }
+
+    return null;
+  };
+
+  const buildSelectedPoints = (values = []) =>
+    values.map((value) => resolveSelectedPoint(value)).filter(Boolean);
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
 
-      if (!values.pickupPoints || values.pickupPoints.length === 0) {
+      if (!values.pickupStopIds || values.pickupStopIds.length === 0) {
         message.error('Vui lòng thêm ít nhất 1 điểm đón');
         return;
       }
-      if (!values.dropoffPoints || values.dropoffPoints.length === 0) {
+      if (!values.dropoffStopIds || values.dropoffStopIds.length === 0) {
         message.error('Vui lòng thêm ít nhất 1 điểm trả');
         return;
       }
 
-      const stops = (values.stops || []).map((stop, index) => ({
-        ...stop,
-        order: index + 1,
-      }));
+      const pickupPoints = buildSelectedPoints(values.pickupStopIds);
+      const dropoffPoints = buildSelectedPoints(values.dropoffStopIds);
+      if (pickupPoints.length !== values.pickupStopIds.length) {
+        message.error('Có điểm đón không còn tồn tại trong danh mục');
+        return;
+      }
+      if (dropoffPoints.length !== values.dropoffStopIds.length) {
+        message.error('Có điểm trả không còn tồn tại trong danh mục');
+        return;
+      }
+
+      const stops = (values.journeyStops || []).map((stop, index) => {
+        const selected = resolveSelectedPoint(stop.stopId);
+        return selected
+          ? {
+              ...selected,
+              order: index + 1,
+              estimatedArrivalMinutes: stop.estimatedArrivalMinutes,
+              stopDuration: stop.stopDuration,
+            }
+          : null;
+      });
+
+      if (stops.some((stop) => !stop)) {
+        message.error('Có điểm dừng giữa hành trình không còn tồn tại trong danh mục');
+        return;
+      }
+
+      for (let i = 0; i < stops.length; i += 1) {
+        const stop = stops[i];
+        const previous = stops[i - 1];
+        if (stop.estimatedArrivalMinutes > values.estimatedDuration) {
+          message.error(`Điểm dừng #${i + 1} có thời gian đến vượt quá thời gian toàn tuyến`);
+          return;
+        }
+        if (previous && stop.estimatedArrivalMinutes <= previous.estimatedArrivalMinutes) {
+          message.error('Thời gian đến của các điểm dừng giữa hành trình phải tăng dần');
+          return;
+        }
+      }
 
       const routeData = {
         routeName: values.routeName,
         routeCode: values.routeCode,
         origin: { province: values.originProvince, city: values.originCity },
         destination: { province: values.destinationProvince, city: values.destinationCity },
-        pickupPoints: values.pickupPoints || [],
-        dropoffPoints: values.dropoffPoints || [],
+        pickupPoints,
+        dropoffPoints,
         stops,
         distance: values.distance,
         estimatedDuration: values.estimatedDuration,
@@ -664,126 +806,68 @@ const RoutesPage = () => {
             </div>
           </div>
 
-          <Divider orientation="left">Điểm Đón</Divider>
-          <Form.List name="pickupPoints">
-            {(fields, { add, remove }) => (
-              <>
-                {fields.map(({ key, name, ...restField }, index) => (
-                  <div
-                    key={key}
-                    className="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50"
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-medium text-gray-700">
-                        Điểm đón #{index + 1}
-                      </h4>
-                      {fields.length > 1 && (
-                        <Button
-                          type="text"
-                          danger
-                          size="small"
-                          icon={<MinusCircleOutlined />}
-                          onClick={() => remove(name)}
-                        >
-                          Xóa
-                        </Button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'name']}
-                        label="Tên điểm đón"
-                        rules={[{ required: true, message: 'Vui lòng nhập tên điểm đón' }]}
-                      >
-                        <Input placeholder="Ví dụ: Bến xe Miền Đông" />
-                      </Form.Item>
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'address']}
-                        label="Địa chỉ chi tiết"
-                        rules={[{ required: true, message: 'Vui lòng nhập địa chỉ' }]}
-                      >
-                        <Input placeholder="Ví dụ: 292 Đinh Bộ Lĩnh, P.26, Q. Bình Thạnh" />
-                      </Form.Item>
-                    </div>
-                  </div>
-                ))}
-                <Form.Item>
-                  <Button
-                    type="dashed"
-                    onClick={() => add()}
-                    block
-                    icon={<PlusOutlined />}
-                  >
-                    Thêm điểm đón
-                  </Button>
-                </Form.Item>
-              </>
-            )}
-          </Form.List>
+          <Divider orientation="left">Điểm lên / xuống xe</Divider>
+          <div
+            style={{
+              padding: 12,
+              border: '1px solid #DFE2EC',
+              borderRadius: 8,
+              background: '#F9FAFF',
+              marginBottom: 16,
+              font: '400 13px var(--font-display)',
+              color: 'var(--vxn-fg-3)',
+            }}
+          >
+            Điểm lên xe, xuống xe và điểm dừng giữa hành trình được chọn từ danh mục điểm
+            dừng của nhà xe. Tạo điểm mới tại màn Quản lý điểm dừng trước khi cấu hình tuyến.
+          </div>
 
-          <Divider orientation="left">Điểm Trả</Divider>
-          <Form.List name="dropoffPoints">
-            {(fields, { add, remove }) => (
-              <>
-                {fields.map(({ key, name, ...restField }, index) => (
-                  <div
-                    key={key}
-                    className="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50"
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-medium text-gray-700">
-                        Điểm trả #{index + 1}
-                      </h4>
-                      {fields.length > 1 && (
-                        <Button
-                          type="text"
-                          danger
-                          size="small"
-                          icon={<MinusCircleOutlined />}
-                          onClick={() => remove(name)}
-                        >
-                          Xóa
-                        </Button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'name']}
-                        label="Tên điểm trả"
-                        rules={[{ required: true, message: 'Vui lòng nhập tên điểm trả' }]}
-                      >
-                        <Input placeholder="Ví dụ: Bến xe Đà Lạt" />
-                      </Form.Item>
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'address']}
-                        label="Địa chỉ chi tiết"
-                        rules={[{ required: true, message: 'Vui lòng nhập địa chỉ' }]}
-                      >
-                        <Input placeholder="Ví dụ: 1 Tô Hiến Thành, P.3, Tp. Đà Lạt" />
-                      </Form.Item>
-                    </div>
-                  </div>
-                ))}
-                <Form.Item>
-                  <Button
-                    type="dashed"
-                    onClick={() => add()}
-                    block
-                    icon={<PlusOutlined />}
-                  >
-                    Thêm điểm trả
-                  </Button>
-                </Form.Item>
-              </>
-            )}
-          </Form.List>
+          <Form.Item
+            name="pickupStopIds"
+            label="Điểm lên xe"
+            rules={[
+              {
+                type: 'array',
+                required: true,
+                min: 1,
+                message: 'Vui lòng chọn ít nhất 1 điểm lên xe',
+              },
+            ]}
+          >
+            <AntSelect
+              mode="multiple"
+              showSearch
+              optionFilterProp="label"
+              loading={stopsLoading}
+              options={stopOptions}
+              placeholder="Chọn một hoặc nhiều điểm lên xe"
+            />
+          </Form.Item>
 
-          <Divider orientation="left">Điểm Dừng Chân</Divider>
-          <Form.List name="stops">
+          <Form.Item
+            name="dropoffStopIds"
+            label="Điểm xuống xe"
+            rules={[
+              {
+                type: 'array',
+                required: true,
+                min: 1,
+                message: 'Vui lòng chọn ít nhất 1 điểm xuống xe',
+              },
+            ]}
+          >
+            <AntSelect
+              mode="multiple"
+              showSearch
+              optionFilterProp="label"
+              loading={stopsLoading}
+              options={stopOptions}
+              placeholder="Chọn một hoặc nhiều điểm xuống xe"
+            />
+          </Form.Item>
+
+          <Divider orientation="left">Điểm dừng giữa hành trình</Divider>
+          <Form.List name="journeyStops">
             {(fields, { add, remove }) => (
               <>
                 {fields.map(({ key, name, ...restField }, index) => (
@@ -808,31 +892,20 @@ const RoutesPage = () => {
                     <div className="grid grid-cols-2 gap-3">
                       <Form.Item
                         {...restField}
-                        name={[name, 'name']}
+                        name={[name, 'stopId']}
                         label="Tên điểm dừng"
-                        rules={[{ required: true, message: 'Vui lòng nhập tên điểm dừng' }]}
+                        rules={[{ required: true, message: 'Vui lòng chọn điểm dừng' }]}
                       >
-                        <Input placeholder="Ví dụ: Trạm dừng chân Dầu Giây" />
-                      </Form.Item>
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'address']}
-                        label="Địa chỉ chi tiết"
-                        rules={[{ required: true, message: 'Vui lòng nhập địa chỉ' }]}
-                      >
-                        <Input placeholder="Ví dụ: KM 50 QL1A, Dầu Giây, Đồng Nai" />
+                        <AntSelect
+                          showSearch
+                          optionFilterProp="label"
+                          loading={stopsLoading}
+                          options={stopOptions}
+                          placeholder="Chọn điểm dừng từ danh mục"
+                        />
                       </Form.Item>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'order']}
-                        label="Thứ tự"
-                        initialValue={index + 1}
-                        hidden
-                      >
-                        <InputNumber min={1} className="w-full" />
-                      </Form.Item>
                       <Form.Item
                         {...restField}
                         name={[name, 'estimatedArrivalMinutes']}

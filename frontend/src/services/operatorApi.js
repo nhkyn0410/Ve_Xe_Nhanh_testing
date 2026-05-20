@@ -58,8 +58,12 @@ export const routesApi = {
 // ==================== Stops ====================
 
 export const stopsApi = {
-  // Get consolidated stop/point network derived from all routes
+  // Stop point catalog
   getStops: (params = {}) => api.get('/operators/stops', { params }),
+  getById: (id) => api.get(`/operators/stops/${id}`),
+  create: (data) => api.post('/operators/stops', data),
+  update: (id, data) => api.put(`/operators/stops/${id}`, data),
+  delete: (id) => api.delete(`/operators/stops/${id}`),
 };
 
 // ==================== Buses ====================

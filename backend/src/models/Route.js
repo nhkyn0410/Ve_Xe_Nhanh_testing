@@ -45,6 +45,10 @@ const LocationSchema = new mongoose.Schema(
 // Sub-schema for pickup/dropoff points
 const PointSchema = new mongoose.Schema(
   {
+    stopId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'StopPoint',
+    },
     name: {
       type: String,
       required: [true, 'Tên điểm là bắt buộc'],
@@ -73,6 +77,10 @@ const PointSchema = new mongoose.Schema(
 // Sub-schema for stops/waypoints along the route
 const StopSchema = new mongoose.Schema(
   {
+    stopId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'StopPoint',
+    },
     name: {
       type: String,
       required: [true, 'Tên điểm dừng là bắt buộc'],

@@ -155,6 +155,7 @@ Nguồn tham chiếu chính:
 - [ ] Đánh giá có áp dụng toàn bộ VXN tokens cho operator/admin hay chỉ harmonize nhẹ.
 - [ ] Không làm mất tính dense dashboard của operator/admin.
 - [ ] Kiểm tra operator tenant boundary: mọi thao tác operator vẫn qua API hiện có.
+- [x] Thêm CRUD danh mục điểm dừng cho operator và đổi form tuyến sang chọn điểm có sẵn - backend thêm `StopPoint` + `/operators/stops` CRUD, route snapshot thêm `stopId`; frontend `/operator/stops` tạo/sửa/xóa điểm dừng và `RoutesPage.jsx` chọn nhiều điểm lên xe, xuống xe, điểm dừng giữa hành trình từ catalog. `npm run build` trong `frontend/` thành công; `node.exe -c` pass cho các file backend mới.
 - [~] Bỏ nút hủy chuyến khỏi `TripManagerDashboard.jsx`; cần smoke test route `/trip-manager/dashboard` với tài khoản trip-manager.
 - [ ] Kiểm tra trip-manager QR scanner trên mobile/tablet.
 - [ ] Kiểm tra admin table, filter, modal, content management sau khi đổi token toàn cục.
