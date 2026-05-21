@@ -11,6 +11,7 @@ import {
   Select as AntSelect,
 } from 'antd';
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
+import RouteMiniMap from '../../components/customer/RouteMiniMap';
 import { routesApi, stopsApi } from '../../services/operatorApi';
 import {
   PageHeader,
@@ -43,8 +44,75 @@ const snapshotFromCatalogStop = (stop) => ({
   stopId: stop._id,
   name: stop.name,
   address: stop.address,
+  city: stop.city,
+  province: stop.province,
   coordinates: stop.coordinates,
 });
+
+const toPreviewMapPoint = (point, { role, index, type }) => ({
+  key: `${role}-${point.stopId || point._id || point.name || point.address || index}`,
+  type,
+  label: point.name || point.address || `Điểm ${index + 1}`,
+  address: point.address,
+  city: point.city,
+  coordinates: point.coordinates,
+});
+
+const RouteFormMapPreview = ({ points, loading }) => {
+  if (!points.length) {
+    return (
+      <div
+        style={{
+          minHeight: 250,
+          border: '1px dashed var(--vxn-border)',
+          borderRadius: 14,
+          background: '#F9FAFF',
+          display: 'grid',
+          placeItems: 'center',
+          padding: 20,
+          textAlign: 'center',
+        }}
+      >
+        <div>
+          <div
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 12,
+              background: '#ECF6F7',
+              display: 'grid',
+              placeItems: 'center',
+              margin: '0 auto 10px',
+              color: 'var(--vxn-teal-800)',
+            }}
+          >
+            <VxnIcon name="map" size={20} />
+          </div>
+          <div style={{ font: '700 14px var(--font-display)', color: 'var(--vxn-ink)' }}>
+            Chưa có điểm để hiển thị
+          </div>
+          <div style={{ marginTop: 4, font: '400 12px var(--font-display)', color: 'var(--vxn-fg-5)' }}>
+            Chọn điểm lên xe, điểm dừng hoặc điểm xuống xe để xem trước lộ trình.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <RouteMiniMap
+      points={points}
+      title="Bản đồ tuyến đang cấu hình"
+      subtitle={
+        loading
+          ? 'Đang tải danh mục điểm dừng...'
+          : `${points.length} điểm đã chọn theo thứ tự lên xe - dừng - xuống xe`
+      }
+      heightClassName="h-[300px]"
+      compact
+    />
+  );
+};
 
 /** Map a repo Route document onto the design's flat route shape. */
 const mapRoute = (r) => ({
@@ -185,10 +253,7 @@ const RoutesPage = () => {
     const total = mapped.length;
     const active = mapped.filter((r) => r.status === 'active').length;
     const suspended = total - active;
-    const busiest = mapped.reduce(
-      (best, r) => (r.trips > (best?.trips || 0) ? r : best),
-      null
-    );
+    const busiest = mapped.reduce((best, r) => (r.trips > (best?.trips || 0) ? r : best), null);
     return { total, active, suspended, busiest };
   }, [mapped]);
 
@@ -256,6 +321,8 @@ const RoutesPage = () => {
         stopId: legacyPoint.stopId,
         name: legacyPoint.name,
         address: legacyPoint.address,
+        city: legacyPoint.city,
+        province: legacyPoint.province,
         coordinates: legacyPoint.coordinates,
       };
     }
@@ -265,6 +332,47 @@ const RoutesPage = () => {
 
   const buildSelectedPoints = (values = []) =>
     values.map((value) => resolveSelectedPoint(value)).filter(Boolean);
+
+  const watchedPickupStopIds = Form.useWatch('pickupStopIds', form) || [];
+  const watchedDropoffStopIds = Form.useWatch('dropoffStopIds', form) || [];
+  const watchedJourneyStops = Form.useWatch('journeyStops', form) || [];
+
+  const routePreviewPoints = useMemo(() => {
+    const pickupPoints = watchedPickupStopIds
+      .map((value) => resolveSelectedPoint(value))
+      .filter(Boolean)
+      .map((point, index) =>
+        toPreviewMapPoint(point, {
+          role: 'pickup',
+          index,
+          type: index === 0 ? 'start' : 'stop',
+        })
+      );
+
+    const journeyPoints = watchedJourneyStops
+      .map((stop) => resolveSelectedPoint(stop?.stopId))
+      .filter(Boolean)
+      .map((point, index) =>
+        toPreviewMapPoint(point, {
+          role: 'journey',
+          index,
+          type: 'stop',
+        })
+      );
+
+    const dropoffPoints = watchedDropoffStopIds
+      .map((value) => resolveSelectedPoint(value))
+      .filter(Boolean)
+      .map((point, index, list) =>
+        toPreviewMapPoint(point, {
+          role: 'dropoff',
+          index,
+          type: index === list.length - 1 ? 'end' : 'stop',
+        })
+      );
+
+    return [...pickupPoints, ...journeyPoints, ...dropoffPoints];
+  }, [legacyPointMap, stopById, watchedDropoffStopIds, watchedJourneyStops, watchedPickupStopIds]);
 
   const handleSubmit = async () => {
     try {
@@ -372,9 +480,7 @@ const RoutesPage = () => {
     try {
       // toggle-active endpoint requires an explicit isActive flag → use update
       await routesApi.update(record._id, { isActive: !record.isActive });
-      message.success(
-        record.isActive ? 'Đã tạm ngưng tuyến đường' : 'Đã kích hoạt tuyến đường'
-      );
+      message.success(record.isActive ? 'Đã tạm ngưng tuyến đường' : 'Đã kích hoạt tuyến đường');
       loadRoutes();
     } catch (error) {
       message.error(typeof error === 'string' ? error : 'Không thể cập nhật trạng thái');
@@ -481,11 +587,7 @@ const RoutesPage = () => {
           borderBottom: 0,
         }}
       >
-        <SearchInput
-          value={q}
-          onChange={setQ}
-          placeholder="Tìm mã tuyến, điểm đi, điểm đến…"
-        />
+        <SearchInput value={q} onChange={setQ} placeholder="Tìm mã tuyến, điểm đi, điểm đến…" />
         <div style={{ display: 'flex', gap: 10, marginLeft: 'auto' }}>
           <Select value={fromF} onChange={setFromF} options={fromOptions} />
           <Select
@@ -590,8 +692,7 @@ const RoutesPage = () => {
                 <tr
                   key={r._id || r.code}
                   style={{
-                    borderBottom:
-                      i < pageRows.length - 1 ? '1px solid var(--vxn-border)' : 0,
+                    borderBottom: i < pageRows.length - 1 ? '1px solid var(--vxn-border)' : 0,
                   }}
                 >
                   <td style={{ padding: '14px 16px' }}>
@@ -605,12 +706,7 @@ const RoutesPage = () => {
                     </span>
                   </td>
                   <td style={{ padding: '14px 16px' }}>
-                    <RouteVisual
-                      from={r.from}
-                      to={r.to}
-                      fromSt={r.fromSt}
-                      toSt={r.toSt}
-                    />
+                    <RouteVisual from={r.from} to={r.to} fromSt={r.fromSt} toSt={r.toSt} />
                   </td>
                   <td
                     style={{
@@ -628,8 +724,7 @@ const RoutesPage = () => {
                       color: 'var(--vxn-fg-2)',
                     }}
                   >
-                    {Math.floor(r.durMin / 60)}h
-                    {r.durMin % 60 ? `${r.durMin % 60}p` : ''}
+                    {Math.floor(r.durMin / 60)}h{r.durMin % 60 ? `${r.durMin % 60}p` : ''}
                   </td>
                   <td
                     style={{
@@ -651,9 +746,7 @@ const RoutesPage = () => {
                       }}
                     >
                       {r.trips}
-                      {r.trips >= 10 && (
-                        <VxnIcon name="flame" size={14} color="#15803D" />
-                      )}
+                      {r.trips >= 10 && <VxnIcon name="flame" size={14} color="#15803D" />}
                     </span>
                   </td>
                   <td
@@ -689,11 +782,7 @@ const RoutesPage = () => {
                         title="Chỉnh sửa"
                         onClick={() => handleEdit(r.raw)}
                       />
-                      <Dropdown
-                        trigger={['click']}
-                        menu={rowMenu(r)}
-                        placement="bottomRight"
-                      >
+                      <Dropdown trigger={['click']} menu={rowMenu(r)} placement="bottomRight">
                         <span>
                           <RowIconBtn icon="ellipsis-vertical" title="Thao tác" />
                         </span>
@@ -725,18 +814,11 @@ const RoutesPage = () => {
             {Math.min(currentPage * PAGE_SIZE, filtered.length)} / {filtered.length} tuyến
           </span>
           <div style={{ display: 'flex', gap: 6 }}>
-            <PageBtn
-              disabled={currentPage <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
+            <PageBtn disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
               ‹
             </PageBtn>
             {pageNumbers.map((n) => (
-              <PageBtn
-                key={n}
-                active={n === currentPage}
-                onClick={() => setPage(n)}
-              >
+              <PageBtn key={n} active={n === currentPage} onClick={() => setPage(n)}>
                 {n}
               </PageBtn>
             ))}
@@ -755,7 +837,7 @@ const RoutesPage = () => {
         open={modalVisible}
         onOk={handleSubmit}
         onCancel={() => setModalVisible(false)}
-        width={900}
+        width={1040}
         okText={editingRoute ? 'Cập nhật' : 'Tạo'}
         cancelText="Hủy"
         style={{ top: 20 }}
@@ -780,8 +862,8 @@ const RoutesPage = () => {
               </Form.Item>
               <Form.Item
                 name="originCity"
-                label="Quận/Xã"
-                rules={[{ required: true, message: 'Vui lòng nhập quận/xã' }]}
+                label="Phường/Xã"
+                rules={[{ required: true, message: 'Vui lòng nhập phường/xã' }]}
               >
                 <Input placeholder="Ví dụ: Quận 1" />
               </Form.Item>
@@ -798,8 +880,8 @@ const RoutesPage = () => {
               </Form.Item>
               <Form.Item
                 name="destinationCity"
-                label="Quận/Xã"
-                rules={[{ required: true, message: 'Vui lòng nhập quận/xã' }]}
+                label="Phường/Xã"
+                rules={[{ required: true, message: 'Vui lòng nhập phường/xã' }]}
               >
                 <Input placeholder="Ví dụ: Phường 3" />
               </Form.Item>
@@ -818,8 +900,8 @@ const RoutesPage = () => {
               color: 'var(--vxn-fg-3)',
             }}
           >
-            Điểm lên xe, xuống xe và điểm dừng giữa hành trình được chọn từ danh mục điểm
-            dừng của nhà xe. Tạo điểm mới tại màn Quản lý điểm dừng trước khi cấu hình tuyến.
+            Điểm lên xe, xuống xe và điểm dừng giữa hành trình được chọn từ danh mục điểm dừng của
+            nhà xe. Tạo điểm mới tại màn Quản lý điểm dừng trước khi cấu hình tuyến.
           </div>
 
           <Form.Item
@@ -866,19 +948,51 @@ const RoutesPage = () => {
             />
           </Form.Item>
 
+          <div
+            style={{
+              border: '1px solid var(--vxn-border)',
+              borderRadius: 14,
+              padding: 14,
+              marginBottom: 18,
+              background: '#fff',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                gap: 12,
+                marginBottom: 12,
+              }}
+            >
+              <div>
+                <div style={{ font: '700 14px var(--font-display)', color: 'var(--vxn-ink)' }}>
+                  Xem trước lộ trình trên bản đồ
+                </div>
+                <div style={{ marginTop: 3, font: '400 12px var(--font-display)', color: 'var(--vxn-fg-5)' }}>
+                  Bản đồ cập nhật tự động khi chọn điểm lên xe, điểm dừng và điểm xuống xe.
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
+                <Chip tone="info">{watchedPickupStopIds.length} điểm lên</Chip>
+                <Chip tone="warn">
+                  {watchedJourneyStops.filter((stop) => stop?.stopId).length} điểm dừng
+                </Chip>
+                <Chip tone="success">{watchedDropoffStopIds.length} điểm xuống</Chip>
+              </div>
+            </div>
+            <RouteFormMapPreview points={routePreviewPoints} loading={stopsLoading} />
+          </div>
+
           <Divider orientation="left">Điểm dừng giữa hành trình</Divider>
           <Form.List name="journeyStops">
             {(fields, { add, remove }) => (
               <>
                 {fields.map(({ key, name, ...restField }, index) => (
-                  <div
-                    key={key}
-                    className="mb-4 p-4 border border-blue-200 rounded-lg bg-blue-50"
-                  >
+                  <div key={key} className="mb-4 p-4 border border-blue-200 rounded-lg bg-blue-50">
                     <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-medium text-blue-700">
-                        Điểm dừng chân #{index + 1}
-                      </h4>
+                      <h4 className="font-medium text-blue-700">Điểm dừng chân #{index + 1}</h4>
                       <Button
                         type="text"
                         danger
@@ -910,9 +1024,7 @@ const RoutesPage = () => {
                         {...restField}
                         name={[name, 'estimatedArrivalMinutes']}
                         label="Thời gian đến (phút từ điểm xuất phát)"
-                        rules={[
-                          { required: true, message: 'Vui lòng nhập thời gian đến' },
-                        ]}
+                        rules={[{ required: true, message: 'Vui lòng nhập thời gian đến' }]}
                       >
                         <InputNumber
                           min={1}
@@ -926,9 +1038,7 @@ const RoutesPage = () => {
                         name={[name, 'stopDuration']}
                         label="Thời gian dừng"
                         initialValue={15}
-                        rules={[
-                          { required: true, message: 'Vui lòng nhập thời gian dừng' },
-                        ]}
+                        rules={[{ required: true, message: 'Vui lòng nhập thời gian dừng' }]}
                       >
                         <InputNumber
                           min={5}
@@ -942,12 +1052,7 @@ const RoutesPage = () => {
                   </div>
                 ))}
                 <Form.Item>
-                  <Button
-                    type="dashed"
-                    onClick={() => add()}
-                    block
-                    icon={<PlusOutlined />}
-                  >
+                  <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
                     Thêm điểm dừng chân
                   </Button>
                 </Form.Item>
@@ -956,11 +1061,7 @@ const RoutesPage = () => {
           </Form.List>
 
           <div className="grid grid-cols-2 gap-4">
-            <Form.Item
-              name="distance"
-              label="Khoảng Cách (km)"
-              rules={[{ required: true }]}
-            >
+            <Form.Item name="distance" label="Khoảng Cách (km)" rules={[{ required: true }]}>
               <InputNumber min={1} className="w-full" />
             </Form.Item>
             <Form.Item
@@ -1005,9 +1106,7 @@ const RoutesPage = () => {
 function RouteVisual({ from, to, fromSt, toSt }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
-      >
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <span
           style={{
             width: 10,

@@ -172,7 +172,7 @@ class PaymentService {
       if (booking.voucherId) {
         try {
           const VoucherServiceClass = getVoucherService();
-          await VoucherServiceClass.applyToBooking(booking.voucherId);
+          await VoucherServiceClass.applyToBooking(booking.voucherId, booking.customerId);
         } catch (error) {
           logger.error('Không thể áp dụng voucher:', error.message);
         }
@@ -353,6 +353,18 @@ class PaymentService {
 
           // Confirm booking (updates status to confirmed, isHeld to false)
           booking.confirm();
+        }
+
+        // Apply voucher after the payment is successfully captured. This is
+        // intentionally inside the non-idempotent branch guarded by
+        // payment.status !== completed above.
+        if (booking.voucherId) {
+          try {
+            const VoucherServiceClass = getVoucherService();
+            await VoucherServiceClass.applyToBooking(booking.voucherId, booking.customerId);
+          } catch (error) {
+            logger.error('Không thể áp dụng voucher:', error.message);
+          }
         }
 
         await booking.save();

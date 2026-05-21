@@ -23,6 +23,7 @@ const ADMIN_NAV = [
       { key: 'routes', label: 'Tuyến đường', icon: 'map', path: '/admin/routes' },
       { key: 'trips', label: 'Chuyến xe', icon: 'route', path: '/admin/trips' },
       { key: 'tx', label: 'Giao dịch', icon: 'wallet', path: '/admin/transactions' },
+      { key: 'vouchers', label: 'Voucher hệ thống', icon: 'ticket-percent', path: '/admin/vouchers' },
     ],
   },
   {

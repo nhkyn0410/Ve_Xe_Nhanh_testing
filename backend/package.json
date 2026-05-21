@@ -8,6 +8,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node scripts/seedData.js",
+    "seed:stops": "node scripts/seedStopPoints.js",
     "seed:admin": "node scripts/seedAdmin.js",
     "clear": "node scripts/clearData.js",
     "test": "jest --coverage",

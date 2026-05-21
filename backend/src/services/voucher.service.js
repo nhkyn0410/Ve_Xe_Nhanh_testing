@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Voucher = require('../models/Voucher');
+const VoucherWallet = require('../models/VoucherWallet');
 const Booking = require('../models/Booking');
 const Trip = require('../models/Trip');
 
@@ -35,6 +36,7 @@ class VoucherService {
       applicableCustomers,
       applicableCustomerTiers,
       applicableDaysOfWeek,
+      isActive,
     } = voucherData;
 
     // Check if code already exists
@@ -68,6 +70,7 @@ class VoucherService {
       applicableCustomers: applicableCustomers || [],
       applicableCustomerTiers: applicableCustomerTiers || [],
       applicableDaysOfWeek: applicableDaysOfWeek || [],
+      isActive: isActive !== undefined ? isActive : true,
       createdBy: creatorId,
       createdByModel: creatorModel,
     });
@@ -142,6 +145,8 @@ class VoucherService {
         name: voucher.name,
         discountType: voucher.discountType,
         discountValue: voucher.discountValue,
+        source: voucher.operatorId ? 'operator' : 'platform',
+        sourceLabel: voucher.operatorId ? 'Nhà xe' : 'Vé Xe Nhanh',
       },
       discountAmount,
       finalAmount: Math.max(0, totalAmount - discountAmount),
@@ -151,15 +156,32 @@ class VoucherService {
   /**
    * Apply voucher to booking (increment usage)
    * @param {string} voucherId - Voucher ID
+   * @param {string|null} customerId - Customer ID, if the booking belongs to a logged-in user
    * @returns {Promise<void>}
    */
-  static async applyToBooking(voucherId) {
+  static async applyToBooking(voucherId, customerId = null) {
     const voucher = await Voucher.findById(voucherId);
     if (!voucher) {
       throw new Error('Không tìm thấy voucher');
     }
 
     await voucher.incrementUsage();
+
+    if (customerId) {
+      await VoucherWallet.updateOne(
+        {
+          customerId,
+          voucherId,
+          status: { $ne: 'removed' },
+        },
+        {
+          $set: {
+            status: 'used',
+            usedAt: new Date(),
+          },
+        }
+      );
+    }
   }
 
   /**
@@ -325,37 +347,47 @@ class VoucherService {
   static async getPublicVouchers(filters = {}) {
     const { operatorId, routeId } = filters;
 
-    const query = {
+    const baseQuery = {
       isActive: true,
       validFrom: { $lte: new Date() },
       validUntil: { $gte: new Date() },
       // Only show vouchers with no specific customer restrictions
       applicableCustomers: { $size: 0 },
     };
+    const conditions = [baseQuery];
 
     // Filter by operator (or system-wide)
     if (operatorId) {
-      query.$or = [{ operatorId }, { operatorId: null }];
+      conditions.push({ $or: [{ operatorId }, { operatorId: null }] });
     } else {
-      query.operatorId = null; // Only system-wide vouchers
+      conditions.push({ operatorId: null }); // Only system-wide vouchers
     }
 
     // Filter by route if specified
     if (routeId) {
-      query.$or = [
-        { applicableRoutes: { $size: 0 } }, // No route restriction
-        { applicableRoutes: routeId }, // Applicable to this route
-      ];
+      conditions.push({
+        $or: [
+          { applicableRoutes: { $size: 0 } }, // No route restriction
+          { applicableRoutes: routeId }, // Applicable to this route
+        ],
+      });
     }
 
+    const query = conditions.length > 1 ? { $and: conditions } : baseQuery;
     const vouchers = await Voucher.find(query)
       .select(
-        'code name description discountType discountValue maxDiscountAmount minBookingAmount validUntil'
+        'code name description operatorId discountType discountValue maxDiscountAmount minBookingAmount maxUsageTotal currentUsageCount validUntil'
       )
       .sort({ validUntil: 1 })
       .limit(20);
 
-    return vouchers.map((voucher) => ({
+    return vouchers.map((voucher) => this.toPublicVoucher(voucher));
+  }
+
+  static toPublicVoucher(voucher, walletStatus = null) {
+    const source = voucher.operatorId ? 'operator' : 'platform';
+    return {
+      id: voucher._id,
       code: voucher.code,
       name: voucher.name,
       description: voucher.description,
@@ -365,7 +397,109 @@ class VoucherService {
       minBookingAmount: voucher.minBookingAmount,
       validUntil: voucher.validUntil,
       remainingUsage: voucher.remainingUsage,
-    }));
+      source,
+      scope: source,
+      sourceLabel: source === 'platform' ? 'Vé Xe Nhanh' : 'Nhà xe',
+      walletStatus,
+      isSaved: walletStatus === 'saved',
+    };
+  }
+
+  static async getPlatformVouchers() {
+    return Voucher.find({ operatorId: null }).sort({ createdAt: -1 });
+  }
+
+  static async getPlatformStatistics() {
+    const query = { operatorId: null };
+
+    const [total, active, expired, totalUsage, topUsed] = await Promise.all([
+      Voucher.countDocuments(query),
+      Voucher.countDocuments({ ...query, isActive: true }),
+      Voucher.countDocuments({ ...query, validUntil: { $lt: new Date() } }),
+      Voucher.aggregate([
+        { $match: query },
+        { $group: { _id: null, totalUsage: { $sum: '$currentUsageCount' } } },
+      ]),
+      Voucher.find(query)
+        .sort({ currentUsageCount: -1 })
+        .limit(10)
+        .select('code name currentUsageCount maxUsageTotal discountType discountValue'),
+    ]);
+
+    return {
+      totalVouchers: total,
+      activeVouchers: active,
+      expiredVouchers: expired,
+      totalUsageCount: totalUsage[0]?.totalUsage || 0,
+      topUsedVouchers: topUsed,
+    };
+  }
+
+  static async saveToWallet(customerId, { voucherId, code }) {
+    const voucher = voucherId ? await Voucher.findById(voucherId) : await Voucher.findByCode(code);
+    if (!voucher) {
+      throw new Error('Không tìm thấy voucher');
+    }
+
+    const now = new Date();
+    if (!voucher.isActive || voucher.validFrom > now || voucher.validUntil < now) {
+      throw new Error('Voucher không còn hiệu lực');
+    }
+
+    if (voucher.applicableCustomers.length > 0) {
+      const allowed = voucher.applicableCustomers.some((id) => id.toString() === customerId.toString());
+      if (!allowed) {
+        throw new Error('Voucher không áp dụng cho tài khoản này');
+      }
+    }
+
+    const walletItem = await VoucherWallet.findOneAndUpdate(
+      { customerId, voucherId: voucher._id },
+      {
+        $set: {
+          status: 'saved',
+          removedAt: null,
+          usedAt: null,
+          savedAt: now,
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).populate('voucherId');
+
+    return this.toPublicVoucher(walletItem.voucherId, walletItem.status);
+  }
+
+  static async getWallet(customerId) {
+    const items = await VoucherWallet.find({
+      customerId,
+      status: { $ne: 'removed' },
+    })
+      .populate('voucherId')
+      .sort({ updatedAt: -1 });
+
+    const now = new Date();
+    return items
+      .filter((item) => item.voucherId)
+      .map((item) => {
+        const expired =
+          !item.voucherId.isActive ||
+          item.voucherId.validUntil < now ||
+          item.voucherId.validFrom > now;
+        const status = expired && item.status === 'saved' ? 'expired' : item.status;
+        return this.toPublicVoucher(item.voucherId, status);
+      });
+  }
+
+  static async removeFromWallet(customerId, voucherId) {
+    await VoucherWallet.updateOne(
+      { customerId, voucherId },
+      {
+        $set: {
+          status: 'removed',
+          removedAt: new Date(),
+        },
+      }
+    );
   }
 
   /**

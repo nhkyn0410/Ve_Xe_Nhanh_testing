@@ -66,6 +66,67 @@ const getStopAddress = (stop) => {
   return stop?.address && stop.address !== title ? stop.address : '';
 };
 
+const asFiniteNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const hasCoordinates = (point) => {
+  const lat = asFiniteNumber(point?.coordinates?.lat);
+  const lng = asFiniteNumber(point?.coordinates?.lng);
+  return lat !== null && lng !== null;
+};
+
+const normalizeSearchText = (value = '') =>
+  String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim();
+
+const pointMatchesLocation = (point, location) => {
+  const locationKeys = [location?.city, location?.station, location?.address]
+    .map(normalizeSearchText)
+    .filter(Boolean);
+
+  if (locationKeys.length === 0 && location?.province) {
+    locationKeys.push(normalizeSearchText(location.province));
+  }
+
+  if (locationKeys.length === 0) return false;
+
+  const pointText = [point?.name, point?.station, point?.address, point?.city, point?.province]
+    .map(normalizeSearchText)
+    .filter(Boolean)
+    .join(' ');
+  if (!pointText) return false;
+
+  return locationKeys.some((key) => pointText.includes(key));
+};
+
+const getRouteMapEndpoint = (location, candidates = [], prefer = 'first') => {
+  if (hasCoordinates(location)) return location;
+
+  const geocodedCandidates = candidates.filter(hasCoordinates);
+  const matched = geocodedCandidates.find((candidate) => pointMatchesLocation(candidate, location));
+  if (matched) return matched;
+
+  return prefer === 'last'
+    ? geocodedCandidates[geocodedCandidates.length - 1] || location
+    : geocodedCandidates[0] || location;
+};
+
+const toRouteMapPoint = (point, { key, type, fallbackLabel, fallbackAddress, fallbackCity }) => ({
+  key,
+  type,
+  label: getStopTitle(point, fallbackLabel),
+  address: getStopAddress(point) || point?.address || fallbackAddress,
+  city: point?.city || fallbackCity,
+  coordinates: point?.coordinates,
+});
+
 const getStopTimeValue = (departureTime, stop) => {
   const estimatedMinutes = Number(stop?.estimatedArrivalMinutes);
 
@@ -304,15 +365,24 @@ const TripDetailPage = () => {
       meta: 'Đến nơi dự kiến',
     },
   ];
+  const originMapEndpoint = getRouteMapEndpoint(
+    view.route.origin,
+    view.route.pickupPoints,
+    'first'
+  );
+  const destinationMapEndpoint = getRouteMapEndpoint(
+    view.route.destination,
+    view.route.dropoffPoints,
+    'last'
+  );
   const routeMapPoints = [
-    {
+    toRouteMapPoint(originMapEndpoint, {
       key: 'origin-map',
       type: 'start',
-      label: view.route.origin?.station || view.route.fromCity,
-      address: view.route.fromAddress,
-      city: view.route.fromCity,
-      coordinates: view.route.origin?.coordinates,
-    },
+      fallbackLabel: view.route.origin?.station || view.route.fromCity,
+      fallbackAddress: view.route.fromAddress,
+      fallbackCity: view.route.fromCity,
+    }),
     ...view.route.stops.map((stop, index) => ({
       key: getEntityId(stop) || `stop-map-${index + 1}`,
       type: 'stop',
@@ -320,14 +390,13 @@ const TripDetailPage = () => {
       address: getStopAddress(stop) || stop?.address,
       coordinates: stop?.coordinates,
     })),
-    {
+    toRouteMapPoint(destinationMapEndpoint, {
       key: 'destination-map',
       type: 'end',
-      label: view.route.destination?.station || view.route.toCity,
-      address: view.route.toAddress,
-      city: view.route.toCity,
-      coordinates: view.route.destination?.coordinates,
-    },
+      fallbackLabel: view.route.destination?.station || view.route.toCity,
+      fallbackAddress: view.route.toAddress,
+      fallbackCity: view.route.toCity,
+    }),
   ];
 
   return (

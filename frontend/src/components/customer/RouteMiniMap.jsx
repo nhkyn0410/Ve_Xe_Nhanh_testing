@@ -254,14 +254,14 @@ const RouteMiniMap = ({
   const normalizedPoints = useMemo(() => normalizePoints(points), [points]);
   const directionsUrl = useMemo(() => buildGoogleMapsDirectionsUrl(points), [points]);
 
-  // Leaflet needs lat/lng. Only use the real map when every point is geocoded
-  // (consistent with the sketch's geo logic) so no stop is silently dropped.
   const geoPoints = useMemo(
-    () => (normalizedPoints.length >= 2 && normalizedPoints.every((point) => point.coordinates)
-      ? normalizedPoints
-      : null),
+    () => {
+      const pointsWithCoordinates = normalizedPoints.filter((point) => point.coordinates);
+      return pointsWithCoordinates.length >= 2 ? pointsWithCoordinates : null;
+    },
     [normalizedPoints]
   );
+  const missingCoordinateCount = geoPoints ? normalizedPoints.length - geoPoints.length : 0;
 
   if (normalizedPoints.length === 0) return null;
 
@@ -299,7 +299,14 @@ const RouteMiniMap = ({
 
       <div className={`relative ${heightClassName}`}>
         {geoPoints ? (
-          <RouteLeafletMap points={geoPoints} />
+          <>
+            <RouteLeafletMap points={geoPoints} />
+            {missingCoordinateCount > 0 && (
+              <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-xl bg-white/90 px-3 py-2 text-[11px] font-medium text-vxn-fg-3 shadow-sm backdrop-blur">
+                {missingCoordinateCount} điểm chưa có tọa độ nên chưa hiển thị trên bản đồ.
+              </div>
+            )}
+          </>
         ) : (
           <RouteSketch points={normalizedPoints} />
         )}

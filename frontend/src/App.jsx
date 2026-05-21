@@ -47,6 +47,7 @@ import PassengerInfoPage from './pages/PassengerInfoPage';
 import BookingConfirmationPage from './pages/BookingConfirmationPage';
 import ProfilePage from './pages/customer/ProfilePage';
 import MyTicketsPage from './pages/customer/MyTicketsPage';
+import VoucherWalletPage from './pages/customer/VoucherWalletPage';
 import MyReviewsPage from './pages/MyReviewsPage';
 import MyComplaintsPage from './pages/MyComplaintsPage';
 import LoyaltyOverviewPage from './pages/LoyaltyOverviewPage';
@@ -76,6 +77,7 @@ import AdminSystemRoutesPage from './pages/admin/SystemRoutesPage';
 import AdminSystemTripsPage from './pages/admin/SystemTripsPage';
 import AdminTransactionsPage from './pages/admin/TransactionsPage';
 import AdminReviewsPage from './pages/admin/ReviewsPage';
+import AdminVoucherManagementPage from './pages/admin/VoucherManagementPage';
 
 function App() {
   return (
@@ -177,6 +179,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['customer']}>
               <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/voucher-wallet"
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
+              <VoucherWalletPage />
             </ProtectedRoute>
           }
         />
@@ -323,6 +333,7 @@ function App() {
           <Route path="routes" element={<AdminSystemRoutesPage />} />
           <Route path="trips" element={<AdminSystemTripsPage />} />
           <Route path="transactions" element={<AdminTransactionsPage />} />
+          <Route path="vouchers" element={<AdminVoucherManagementPage />} />
           <Route path="complaints" element={<ComplaintManagementPage />} />
           <Route path="reviews" element={<AdminReviewsPage />} />
           <Route path="content" element={<ContentManagementPage />} />

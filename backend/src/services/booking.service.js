@@ -196,7 +196,7 @@ class BookingService {
     // Tăng mức sử dụng voucher nếu áp dụng voucher
     if (booking.voucherId) {
       try {
-        await VoucherService.applyToBooking(booking.voucherId);
+        await VoucherService.applyToBooking(booking.voucherId, booking.customerId);
       } catch (error) {
         logger.error('Không thể truy vấn voucher đã sử dụng:', error.message);
       }

@@ -156,7 +156,14 @@ Nguồn tham chiếu chính:
 - [ ] Không làm mất tính dense dashboard của operator/admin.
 - [ ] Kiểm tra operator tenant boundary: mọi thao tác operator vẫn qua API hiện có.
 - [x] Thêm CRUD danh mục điểm dừng cho operator và đổi form tuyến sang chọn điểm có sẵn - backend thêm `StopPoint` + `/operators/stops` CRUD, route snapshot thêm `stopId`; frontend `/operator/stops` tạo/sửa/xóa điểm dừng và `RoutesPage.jsx` chọn nhiều điểm lên xe, xuống xe, điểm dừng giữa hành trình từ catalog. `npm run build` trong `frontend/` thành công; `node.exe -c` pass cho các file backend mới.
+- [x] Thêm seed khoảng 200 điểm dừng cho catalog operator - `backend/scripts/seedStopPoints.js` upsert idempotent vào `stop_points`, phân bổ theo các nhà xe approved hiện có; thêm script `npm run seed:stops`; `node.exe -c backend/scripts/seedStopPoints.js` pass; đã chạy seed local vào MongoDB `vexenhanh` ngày 2026-05-21 với 200 điểm dừng.
+- [x] Nâng UI `/operator/stops` với bản đồ Leaflet hiển thị toàn bộ điểm dừng có tọa độ, panel thống kê tổng hợp bên phải và bảng danh sách giữ bên dưới; frontend gom nhiều trang API để tránh thiếu điểm trên map; `npm run build` trong `frontend/` thành công.
+- [x] Tinh chỉnh bản đồ `/operator/stops`: bật wheel/touch/double-click zoom, chuyển nút zoom sang góc phải với kích thước lớn hơn và thêm thước tỷ lệ; `npm run build` trong `frontend/` thành công.
 - [~] Bỏ nút hủy chuyến khỏi `TripManagerDashboard.jsx`; cần smoke test route `/trip-manager/dashboard` với tài khoản trip-manager.
+- [x] Sửa luồng soát vé QR thanh toán tiền mặt: khi nhân viên xác nhận đã nhận tiền, backend cập nhật cả `Booking.paymentStatus=paid` và `Payment.status=completed`, đồng thời tự đồng bộ lại cash payment nếu vé đã dùng nhưng payment còn pending; đã backfill local 1 giao dịch cash bị lệch `pending / booking:paid`.
+- [x] Sửa bản đồ lộ trình ở `TripDetailPage`: dùng điểm đón/trả có tọa độ làm anchor khi origin/destination chỉ có city/province, và `RouteMiniMap` vẫn render Leaflet nếu một vài điểm thiếu tọa độ; `npm run build` trong `frontend/` thành công.
+- [x] Thêm bản đồ xem trước trong form tạo/sửa tuyến `RoutesPage.jsx`: khi chọn điểm lên xe, điểm dừng giữa hành trình hoặc điểm xuống xe, modal render ngay lộ trình bằng `RouteMiniMap`; `npm run build` trong `frontend/` thành công.
+- [x] Thêm voucher hệ thống cho admin: backend có `/admin/vouchers` CRUD cho voucher global `operatorId=null`, public suggestion trả cả mã nhà xe và mã admin, frontend có trang `/admin/vouchers`; thêm trang ví voucher khách `/voucher-wallet`. `node.exe -c` pass các file backend liên quan và `npm run build` trong `frontend/` thành công.
 - [ ] Kiểm tra trip-manager QR scanner trên mobile/tablet.
 - [ ] Kiểm tra admin table, filter, modal, content management sau khi đổi token toàn cục.
 
