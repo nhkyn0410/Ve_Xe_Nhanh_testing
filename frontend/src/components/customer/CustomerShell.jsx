@@ -97,6 +97,7 @@ const resolveActiveKey = (pathname, activeKey) => {
     pathname.startsWith('/profile') ||
     pathname.startsWith('/settings') ||
     pathname.startsWith('/loyalty') ||
+    pathname.startsWith('/voucher-wallet') ||
     pathname.startsWith('/my-reviews') ||
     pathname.startsWith('/thanh-vien')
   ) {

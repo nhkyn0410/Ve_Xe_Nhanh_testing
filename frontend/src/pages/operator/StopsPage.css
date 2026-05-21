@@ -1,0 +1,36 @@
+.operator-stops-map.leaflet-container {
+  font-family: var(--font-display);
+}
+
+.operator-stops-map.leaflet-container .leaflet-control-zoom.leaflet-bar {
+  border: 0;
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.2);
+  overflow: hidden;
+}
+
+.operator-stops-map.leaflet-container .leaflet-control-zoom.leaflet-bar a {
+  width: 38px;
+  height: 38px;
+  line-height: 38px;
+  border: 0;
+  color: var(--vxn-teal-900);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.operator-stops-map.leaflet-container .leaflet-control-zoom.leaflet-bar a + a {
+  border-top: 1px solid var(--vxn-border);
+}
+
+.operator-stops-map.leaflet-container .leaflet-control-zoom.leaflet-bar a:hover,
+.operator-stops-map.leaflet-container .leaflet-control-zoom.leaflet-bar a:focus {
+  background: #ecf6f7;
+  color: var(--vxn-teal-700);
+}
+
+.operator-stops-map.leaflet-container .leaflet-control-scale-line {
+  border-color: var(--vxn-teal-700);
+  color: var(--vxn-ink);
+  font: 600 11px var(--font-display);
+}

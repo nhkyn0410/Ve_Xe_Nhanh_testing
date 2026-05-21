@@ -1,6 +1,7 @@
 const moment = require('moment-timezone');
 const Ticket = require('../models/Ticket');
 const Booking = require('../models/Booking');
+const Payment = require('../models/Payment');
 const Trip = require('../models/Trip');
 const QRService = require('./qr.service');
 const { sendEmail, emailTemplates } = require('../config/email');
@@ -772,6 +773,67 @@ class TicketService {
     return Ticket.findByTrip(tripId, filters);
   }
 
+  static async confirmCashPaymentForBooking(booking, context = {}) {
+    if (!booking || booking.paymentMethod !== 'cash') {
+      return null;
+    }
+
+    const paidAt = booking.paidAt || new Date();
+    let payment = null;
+
+    const paymentId = String(booking.paymentId || '');
+    if (/^[a-f\d]{24}$/i.test(paymentId)) {
+      payment = await Payment.findOne({
+        _id: paymentId,
+        bookingId: booking._id,
+        paymentMethod: 'cash',
+      });
+    }
+
+    if (!payment) {
+      payment = await Payment.findOne({
+        bookingId: booking._id,
+        paymentMethod: 'cash',
+      }).sort({ createdAt: -1 });
+    }
+
+    if (payment && payment.status !== 'completed') {
+      if (!['pending', 'processing'].includes(payment.status)) {
+        throw new Error(`Không thể xác nhận giao dịch tiền mặt ở trạng thái ${payment.status}`);
+      }
+
+      payment.markAsCompleted(`CASH-${payment.paymentCode}`, {
+        source: 'trip_manager_verify_ticket',
+        paymentType: 'cash_on_boarding',
+        ticketId: context.ticketId,
+        ticketCode: context.ticketCode,
+        tripId: context.tripId,
+        verifiedBy: context.verifiedBy,
+        confirmedAt: paidAt,
+      });
+      await payment.save();
+    }
+
+    if (
+      booking.paymentStatus !== 'paid' ||
+      !booking.paidAt ||
+      (payment && String(booking.paymentId || '') !== String(payment._id))
+    ) {
+      booking.paymentStatus = 'paid';
+      booking.paymentMethod = 'cash';
+      booking.paidAt = paidAt;
+      if (payment) {
+        booking.paymentId = payment._id;
+      }
+      if (booking.status === 'pending' || booking.isHeld) {
+        booking.confirm();
+      }
+      await booking.save();
+    }
+
+    return payment;
+  }
+
   /**
    * Verify ticket QR code
    * @param {string} qrCodeData - Encrypted QR data
@@ -781,6 +843,8 @@ class TicketService {
    */
   static async verifyTicketQR(qrCodeData, tripId, verifiedBy, confirmPayment = false) {
     try {
+      const shouldConfirmPayment = confirmPayment === true || confirmPayment === 'true';
+
       // Verify QR code structure and data
       const qrVerification = await QRService.verifyTicketQR(qrCodeData, { tripId });
 
@@ -803,6 +867,23 @@ class TicketService {
           success: false,
           error: 'Vé không tồn tại trong hệ thống',
         };
+      }
+
+      const booking = ticket.bookingId;
+      const ticketBelongsToTrip = ticket.tripId._id.toString() === tripId;
+      if (
+        ticketBelongsToTrip &&
+        ticket.status !== 'cancelled' &&
+        booking &&
+        booking.paymentMethod === 'cash' &&
+        booking.paymentStatus === 'paid'
+      ) {
+        await this.confirmCashPaymentForBooking(booking, {
+          ticketId: ticket._id,
+          ticketCode: ticket.ticketCode,
+          tripId,
+          verifiedBy,
+        });
       }
 
       // Check ticket status
@@ -831,7 +912,7 @@ class TicketService {
       }
 
       // Check if ticket matches the trip
-      if (ticket.tripId._id.toString() !== tripId) {
+      if (!ticketBelongsToTrip) {
         return {
           success: false,
           error: 'Vé không thuộc chuyến xe này',
@@ -840,9 +921,8 @@ class TicketService {
       }
 
       // Check if cash payment needs confirmation
-      const booking = ticket.bookingId;
-      if (booking && booking.paymentMethod === 'cash' && booking.paymentStatus === 'pending') {
-        if (!confirmPayment) {
+      if (booking && booking.paymentMethod === 'cash') {
+        if (booking.paymentStatus === 'pending' && !shouldConfirmPayment) {
           // Return ticket info but don't mark as used yet - frontend will show payment confirmation modal
           return {
             success: true,
@@ -850,11 +930,15 @@ class TicketService {
             ticket,
             passengers: ticket.passengers,
           };
-        } else {
-          // Confirm payment received
-          booking.paymentStatus = 'paid';
-          booking.paidAt = new Date();
-          await booking.save();
+        }
+
+        if (booking.paymentStatus === 'pending' || booking.paymentStatus === 'paid') {
+          await this.confirmCashPaymentForBooking(booking, {
+            ticketId: ticket._id,
+            ticketCode: ticket.ticketCode,
+            tripId,
+            verifiedBy,
+          });
         }
       }
 

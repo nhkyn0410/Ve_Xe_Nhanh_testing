@@ -24,7 +24,14 @@ import CustomerShell from '../components/customer/CustomerShell';
 import CustomerBreadcrumb from '../components/customer/CustomerBreadcrumb';
 import useBookingStore from '../store/bookingStore';
 import useAuthStore from '../store/authStore';
-import { holdSeats, validateVoucher, createPayment } from '../services/bookingApi';
+import {
+  holdSeats,
+  validateVoucher,
+  createPayment,
+  getPublicVouchers,
+  getVoucherWallet,
+  saveVoucherToWallet,
+} from '../services/bookingApi';
 import { getOperatorDisplayName } from '../utils/operatorDisplay';
 import atmLogo from '../assets/payment-logos/ATM.png';
 import cashLogo from '../assets/payment-logos/CASH.jpg';
@@ -49,18 +56,25 @@ const formatCurrency = (value = 0) => `${Number(value || 0).toLocaleString('vi-V
 
 const formatTime = (value) => (value ? dayjs(value).format('HH:mm') : '--:--');
 const formatDate = (value) => (value ? dayjs(value).format('DD/MM/YYYY') : '');
+const resolveId = (value) => (typeof value === 'string' ? value : value?._id || value?.id);
+
+const formatVoucherBenefit = (voucher) => {
+  if (!voucher) return '';
+  const value =
+    voucher.discountType === 'percentage'
+      ? `Giảm ${voucher.discountValue || 0}%`
+      : `Giảm ${formatCurrency(voucher.discountValue || 0)}`;
+  if (voucher.maxDiscountAmount && voucher.discountType === 'percentage') {
+    return `${value}, tối đa ${formatCurrency(voucher.maxDiscountAmount)}`;
+  }
+  return value;
+};
 
 const BOOKING_STEPS = [
   { key: 'seats', label: 'Chọn ghế' },
   { key: 'passenger', label: 'Thông tin hành khách' },
   { key: 'payment', label: 'Thanh toán' },
   { key: 'done', label: 'Hoàn tất' },
-];
-
-const VOUCHER_SUGGESTIONS = [
-  { code: 'MEMBER10', desc: 'Hạng Gold giảm 10%' },
-  { code: 'WEEKEND15', desc: 'Cuối tuần giảm 15%' },
-  { code: 'NEWVXN', desc: 'Khách mới giảm 30k' },
 ];
 
 const ADDONS = [
@@ -146,7 +160,7 @@ const PAYMENT_METHODS = [
     code: 'cash',
     backendMethod: 'cash',
     name: 'Tiền mặt',
-    description: 'Trả tại văn phòng (giữ ghế 24h)',
+    description: 'Thanh toán khi lên xe',
     logo: '₫',
     logoSrc: cashLogo,
     logoFrameClassName: 'h-12 w-16 p-1',
@@ -308,6 +322,10 @@ const PassengerInfoPage = () => {
 
   const [loading, setLoading] = useState(false);
   const [voucherValidating, setVoucherValidating] = useState(false);
+  const [voucherLoading, setVoucherLoading] = useState(false);
+  const [suggestedVouchers, setSuggestedVouchers] = useState([]);
+  const [walletVouchers, setWalletVouchers] = useState([]);
+  const [savingVoucherCode, setSavingVoucherCode] = useState('');
   const [contactIsPassenger1, setContactIsPassenger1] = useState(true);
   const [savePassengerIdx, setSavePassengerIdx] = useState({});
   const [selectedAddons, setSelectedAddons] = useState({});
@@ -364,6 +382,8 @@ const PassengerInfoPage = () => {
 
     return {
       id: selectedTrip.id || selectedTrip._id,
+      routeId: resolveId(selectedTrip.routeId || selectedTrip.route),
+      operatorId: resolveId(selectedTrip.operatorId || selectedTrip.operator),
       departureTime: selectedTrip.departureTime,
       arrivalTime: selectedTrip.arrivalTime,
       fromCity,
@@ -395,6 +415,76 @@ const PassengerInfoPage = () => {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }, [expiresAt, now]);
 
+  useEffect(() => {
+    if (!tripView?.id) return undefined;
+
+    let alive = true;
+    (async () => {
+      setVoucherLoading(true);
+      try {
+        const response = await getPublicVouchers({
+          operatorId: tripView.operatorId,
+          routeId: tripView.routeId,
+        });
+        if (!alive) return;
+        const vouchers = Array.isArray(response?.data?.vouchers) ? response.data.vouchers : [];
+        setSuggestedVouchers(vouchers);
+      } catch {
+        if (alive) setSuggestedVouchers([]);
+      } finally {
+        if (alive) setVoucherLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [tripView?.id, tripView?.operatorId, tripView?.routeId]);
+
+  const loadVoucherWallet = async () => {
+    if (!user) {
+      setWalletVouchers([]);
+      return;
+    }
+
+    try {
+      const response = await getVoucherWallet();
+      const vouchers = Array.isArray(response?.data?.vouchers) ? response.data.vouchers : [];
+      setWalletVouchers(vouchers);
+    } catch {
+      setWalletVouchers([]);
+    }
+  };
+
+  useEffect(() => {
+    loadVoucherWallet();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id, user?.id]);
+
+  const voucherSuggestions = useMemo(() => {
+    const byCode = new Map();
+    walletVouchers.forEach((voucher) => {
+      if (voucher?.code) byCode.set(voucher.code, { ...voucher, isSaved: true });
+    });
+    suggestedVouchers.forEach((voucher) => {
+      if (!voucher?.code) return;
+      const saved = byCode.get(voucher.code);
+      byCode.set(voucher.code, saved ? { ...voucher, ...saved, isSaved: true } : voucher);
+    });
+    return Array.from(byCode.values()).sort((a, b) => {
+      const aSaved = a.isSaved || a.walletStatus === 'saved' ? 1 : 0;
+      const bSaved = b.isSaved || b.walletStatus === 'saved' ? 1 : 0;
+      if (aSaved !== bSaved) return bSaved - aSaved;
+      if (a.source === b.source) return a.code.localeCompare(b.code);
+      return a.source === 'platform' ? -1 : 1;
+    });
+  }, [suggestedVouchers, walletVouchers]);
+
+  const handleVoucherInputChange = (value) => {
+    setVoucherCode(value.toUpperCase());
+    if (appliedVoucher) setAppliedVoucher(null);
+  };
+
   const handleContactIsPassenger1 = () => {
     const next = !contactIsPassenger1;
     setContactIsPassenger1(next);
@@ -417,11 +507,13 @@ const PassengerInfoPage = () => {
     });
   };
 
-  const handleValidateVoucher = async () => {
-    if (!voucherCode || !voucherCode.trim()) return;
+  const handleValidateVoucher = async (codeToApply = voucherCode) => {
+    const normalizedCode = codeToApply?.trim().toUpperCase();
+    if (!normalizedCode) return;
     try {
       setVoucherValidating(true);
-      const response = await validateVoucher(voucherCode, {
+      setVoucherCode(normalizedCode);
+      const response = await validateVoucher(normalizedCode, {
         tripId: tripView?.id,
         totalAmount: seatTotal,
       });
@@ -436,6 +528,24 @@ const PassengerInfoPage = () => {
       setAppliedVoucher(null);
     } finally {
       setVoucherValidating(false);
+    }
+  };
+
+  const handleSaveVoucher = async (voucher) => {
+    if (!user) {
+      message.info('Đăng nhập để lưu mã vào ví voucher');
+      return;
+    }
+
+    try {
+      setSavingVoucherCode(voucher.code);
+      await saveVoucherToWallet({ voucherId: voucher.id || voucher._id, code: voucher.code });
+      message.success(`Đã lưu ${voucher.code} vào ví voucher`);
+      await loadVoucherWallet();
+    } catch (error) {
+      message.error(typeof error === 'string' ? error : error?.message || 'Không thể lưu voucher');
+    } finally {
+      setSavingVoucherCode('');
     }
   };
 
@@ -802,7 +912,7 @@ const PassengerInfoPage = () => {
                         variant="borderless"
                         placeholder="Nhập mã giảm giá"
                         value={voucherCode}
-                        onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                        onChange={(e) => handleVoucherInputChange(e.target.value)}
                         className="!h-10 !flex-1 !p-0 !text-[14px] !font-semibold"
                         style={{
                           color: appliedVoucher ? '#A55A00' : '#181C22',
@@ -819,37 +929,74 @@ const PassengerInfoPage = () => {
                     <Button
                       size="large"
                       loading={voucherValidating}
-                      onClick={handleValidateVoucher}
+                      onClick={() => handleValidateVoucher()}
                       className="!h-12 !rounded-[10px] !border-vxn-border !bg-white !px-5 !text-[13px] !font-medium"
                     >
                       {appliedVoucher ? 'Đổi mã khác' : 'Áp dụng'}
                     </Button>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {VOUCHER_SUGGESTIONS.map((v) => {
-                      const active = appliedVoucher && voucherCode === v.code;
-                      return (
-                        <button
-                          key={v.code}
-                          type="button"
-                          onClick={() => setVoucherCode(v.code)}
-                          className={`flex items-center gap-2 rounded-[10px] border px-3 py-2 text-left transition ${
-                            active
-                              ? 'border-vxn-saffron-600 bg-[#FFF7E8]'
-                              : 'border-vxn-border bg-white hover:border-vxn-teal-700'
-                          }`}
-                        >
-                          <span
-                            className={`text-[12px] font-bold tracking-[0.04em] ${
-                              active ? 'text-vxn-saffron-700' : 'text-vxn-fg-2'
+                    {voucherLoading && (
+                      <span className="rounded-[10px] border border-vxn-border bg-white px-3 py-2 text-[12px] text-vxn-fg-3">
+                        Đang tải mã ưu đãi phù hợp...
+                      </span>
+                    )}
+                    {!voucherLoading && voucherSuggestions.length === 0 && (
+                      <span className="rounded-[10px] border border-dashed border-vxn-border px-3 py-2 text-[12px] text-vxn-fg-4">
+                        Chưa có mã ưu đãi phù hợp cho chuyến này.
+                      </span>
+                    )}
+                    {!voucherLoading &&
+                      voucherSuggestions.map((v) => {
+                        const active = appliedVoucher && voucherCode === v.code;
+                        const saved = v.isSaved || v.walletStatus === 'saved';
+                        const unavailable =
+                          v.walletStatus === 'expired' || v.walletStatus === 'used';
+                        return (
+                          <div
+                            key={v.code}
+                            className={`flex items-stretch overflow-hidden rounded-[10px] border transition ${
+                              active
+                                ? 'border-vxn-saffron-600 bg-[#FFF7E8]'
+                                : 'border-vxn-border bg-white hover:border-vxn-teal-700'
                             }`}
                           >
-                            {v.code}
-                          </span>
-                          <span className="text-[12px] text-vxn-fg-3">{v.desc}</span>
-                        </button>
-                      );
-                    })}
+                            <button
+                              type="button"
+                              disabled={unavailable}
+                              onClick={() => handleVoucherInputChange(v.code)}
+                              className="flex min-w-[210px] items-center gap-2 border-0 bg-transparent px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <span
+                                className={`text-[12px] font-bold tracking-[0.04em] ${
+                                  active ? 'text-vxn-saffron-700' : 'text-vxn-fg-2'
+                                }`}
+                              >
+                                {v.code}
+                              </span>
+                              <span className="min-w-0 text-[12px] text-vxn-fg-3">
+                                {formatVoucherBenefit(v)}
+                                {v.minBookingAmount
+                                  ? ` · Đơn từ ${formatCurrency(v.minBookingAmount)}`
+                                  : ''}
+                              </span>
+                              <span className="rounded bg-vxn-bg-mist px-1.5 py-0.5 text-[10px] font-semibold text-vxn-fg-4">
+                                {saved ? 'Ví' : v.sourceLabel || 'Ưu đãi'}
+                              </span>
+                            </button>
+                            {!saved && !unavailable && (
+                              <button
+                                type="button"
+                                onClick={() => handleSaveVoucher(v)}
+                                disabled={savingVoucherCode === v.code}
+                                className="border-0 border-l border-vxn-border bg-vxn-bg-mist px-3 text-[12px] font-semibold text-vxn-teal-800 disabled:opacity-60"
+                              >
+                                {savingVoucherCode === v.code ? '...' : 'Lưu'}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 </section>
 
@@ -972,7 +1119,9 @@ const PassengerInfoPage = () => {
                               active ? 'border-vxn-teal-700' : 'border-vxn-border-strong'
                             }`}
                           >
-                            {active && <span className="h-2.5 w-2.5 rounded-full bg-vxn-teal-700" />}
+                            {active && (
+                              <span className="h-2.5 w-2.5 rounded-full bg-vxn-teal-700" />
+                            )}
                           </span>
                         </button>
                       );
@@ -1040,8 +1189,8 @@ const PassengerInfoPage = () => {
                         Thanh toán an toàn qua {paymentMethodForApi === 'cash' ? 'nhà xe' : 'VNPay'}
                       </div>
                       <p className="m-0 mt-1 text-[13px] leading-6 text-vxn-fg-3">
-                        Dữ liệu thẻ được mã hoá PCI-DSS, không lưu trên hệ thống của VXN.
-                        Sau khi nhấn thanh toán, bạn sẽ được chuyển tiếp tới cổng xác nhận phù hợp.
+                        Dữ liệu thẻ được mã hoá PCI-DSS, không lưu trên hệ thống của VXN. Sau khi
+                        nhấn thanh toán, bạn sẽ được chuyển tiếp tới cổng xác nhận phù hợp.
                       </p>
                     </div>
                   </div>
@@ -1052,8 +1201,8 @@ const PassengerInfoPage = () => {
                     checked={acceptedPaymentTerms}
                     onChange={() => setAcceptedPaymentTerms((value) => !value)}
                   >
-                    Tôi đồng ý với Điều khoản dịch vụ và Chính sách đổi/hủy của Vé Xe Nhanh.
-                    Tôi xác nhận thông tin hành khách khớp với CMND/CCCD.
+                    Tôi đồng ý với Điều khoản dịch vụ và Chính sách đổi/hủy của Vé Xe Nhanh. Tôi xác
+                    nhận thông tin hành khách khớp với CMND/CCCD.
                   </CheckBox>
                 </section>
               </div>

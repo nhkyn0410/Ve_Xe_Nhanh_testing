@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Form, Input, InputNumber, Modal, Select as AntSelect, message } from 'antd';
+import { MapContainer, Marker, Popup, ScaleControl, TileLayer, useMap, ZoomControl } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import './StopsPage.css';
 import { stopsApi } from '../../services/operatorApi';
 import {
   PageHeader,
   Btn,
   Select,
   SearchInput,
-  StatPill,
   Chip,
   RowIconBtn,
   PageBtn,
@@ -30,6 +33,181 @@ const TYPE_LABEL = STOP_TYPE_OPTIONS.reduce((acc, item) => {
 
 const getStopCode = (stop) => stop.stopCode || stop.code || '—';
 
+const asFiniteNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const normalizeCoordinates = (coordinates) => {
+  const lat = asFiniteNumber(coordinates?.lat);
+  const lng = asFiniteNumber(coordinates?.lng);
+
+  if (lat === null || lng === null) return null;
+  return { lat, lng };
+};
+
+const getRegionName = (stop) => stop.province || stop.city || 'Chưa phân vùng';
+
+const createStopMarkerIcon = (stop) => {
+  const type = TYPE_LABEL[stop.type] || TYPE_LABEL.other;
+  const isInactive = stop.status === 'inactive';
+  const background = isInactive ? '#64748B' : type.color;
+
+  return L.divIcon({
+    className: 'vxn-stop-marker',
+    html:
+      `<div style="width:30px;height:30px;border-radius:9999px;` +
+      `background:${background};border:3px solid #fff;box-shadow:0 3px 10px rgba(15,23,42,.28);` +
+      `display:flex;align-items:center;justify-content:center;">` +
+      `<span style="width:8px;height:8px;border-radius:9999px;background:#fff;display:block;"></span>` +
+      `</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -15],
+  });
+};
+
+const StopMapController = ({ points }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    map.invalidateSize();
+    const positions = points.map((point) => [point.coordinates.lat, point.coordinates.lng]);
+
+    if (positions.length === 1) {
+      map.setView(positions[0], 12);
+    } else if (positions.length > 1) {
+      map.fitBounds(positions, { padding: [34, 34], maxZoom: 12 });
+    }
+  }, [map, points]);
+
+  return null;
+};
+
+const StopsMap = ({ stops }) => {
+  const points = useMemo(
+    () =>
+      stops
+        .map((stop) => ({
+          ...stop,
+          coordinates: normalizeCoordinates(stop.coordinates),
+        }))
+        .filter((stop) => stop.coordinates),
+    [stops]
+  );
+
+  if (points.length === 0) {
+    return (
+      <div
+        style={{
+          height: '100%',
+          minHeight: 420,
+          background: '#ECF6F7',
+          display: 'grid',
+          placeItems: 'center',
+          color: 'var(--vxn-fg-5)',
+          font: '500 14px var(--font-display)',
+        }}
+      >
+        Chưa có điểm dừng nào có tọa độ để hiển thị trên bản đồ
+      </div>
+    );
+  }
+
+  return (
+    <MapContainer
+      className="operator-stops-map"
+      center={[16.0471, 108.2068]}
+      zoom={6}
+      zoomControl={false}
+      scrollWheelZoom
+      doubleClickZoom
+      touchZoom
+      boxZoom
+      keyboard
+      zoomSnap={0.5}
+      wheelPxPerZoomLevel={80}
+      style={{ height: '100%', minHeight: 420, width: '100%' }}
+    >
+      <TileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        maxZoom={19}
+      />
+      <ZoomControl position="topright" />
+      <ScaleControl position="bottomleft" imperial={false} />
+      {points.map((stop) => {
+        const type = TYPE_LABEL[stop.type] || TYPE_LABEL.other;
+        return (
+          <Marker
+            key={stop._id || getStopCode(stop)}
+            position={[stop.coordinates.lat, stop.coordinates.lng]}
+            icon={createStopMarkerIcon(stop)}
+          >
+            <Popup>
+              <div style={{ minWidth: 180 }}>
+                <div style={{ font: '700 13px var(--font-display)', color: '#0F172A' }}>
+                  {stop.name}
+                </div>
+                <div style={{ marginTop: 4, font: '400 12px var(--font-display)', color: '#475569' }}>
+                  {stop.address || getRegionName(stop)}
+                </div>
+                <div style={{ marginTop: 8, font: '600 12px var(--font-display)', color: type.color }}>
+                  {type.label} · {stop.status === 'inactive' ? 'Ngừng' : 'Hoạt động'}
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
+      <StopMapController points={points} />
+    </MapContainer>
+  );
+};
+
+const SummaryMetric = ({ label, value, hint, icon, tone = '#006481' }) => (
+  <div
+    style={{
+      border: '1px solid var(--vxn-border)',
+      borderRadius: 10,
+      padding: 12,
+      background: '#fff',
+      display: 'flex',
+      gap: 10,
+      alignItems: 'flex-start',
+      minWidth: 0,
+    }}
+  >
+    <div
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: 8,
+        background: `${tone}16`,
+        color: tone,
+        display: 'grid',
+        placeItems: 'center',
+        flexShrink: 0,
+      }}
+    >
+      <VxnIcon name={icon} size={17} />
+    </div>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ font: '700 21px var(--font-display)', color: 'var(--vxn-ink)', lineHeight: 1 }}>
+        {value}
+      </div>
+      <div style={{ marginTop: 5, font: '600 12px var(--font-display)', color: 'var(--vxn-fg-2)' }}>
+        {label}
+      </div>
+      {hint && (
+        <div style={{ marginTop: 2, font: '400 11.5px var(--font-display)', color: 'var(--vxn-fg-5)' }}>
+          {hint}
+        </div>
+      )}
+    </div>
+  </div>
+);
+
 const StopsPage = () => {
   const [form] = Form.useForm();
   const [stops, setStops] = useState([]);
@@ -50,8 +228,23 @@ const StopsPage = () => {
   const loadStops = async () => {
     setLoading(true);
     try {
-      const response = await stopsApi.getStops({ limit: 500 });
-      setStops(response?.data?.stops || []);
+      const firstResponse = await stopsApi.getStops({ page: 1, limit: 500 });
+      const firstPageStops = firstResponse?.data?.stops || [];
+      const pages = firstResponse?.data?.pagination?.pages || 1;
+
+      if (pages <= 1) {
+        setStops(firstPageStops);
+        return;
+      }
+
+      const remainingResponses = await Promise.all(
+        Array.from({ length: pages - 1 }, (_, index) =>
+          stopsApi.getStops({ page: index + 2, limit: 500 })
+        )
+      );
+      const remainingStops = remainingResponses.flatMap((response) => response?.data?.stops || []);
+
+      setStops([...firstPageStops, ...remainingStops]);
     } catch (error) {
       message.error(typeof error === 'string' ? error : 'Không thể tải danh sách điểm dừng');
     } finally {
@@ -93,8 +286,37 @@ const StopsPage = () => {
     const total = stops.length;
     const busStations = stops.filter((s) => s.type === 'bus_station').length;
     const restStops = stops.filter((s) => s.type === 'rest_stop').length;
+    const active = stops.filter((s) => s.status === 'active').length;
     const inactive = stops.filter((s) => s.status === 'inactive').length;
-    return { total, busStations, restStops, inactive };
+    const geocoded = stops.filter((s) => normalizeCoordinates(s.coordinates)).length;
+    const totalRoutes = stops.reduce((sum, s) => sum + (Number(s.routes) || 0), 0);
+    const totalDailyTrips = stops.reduce((sum, s) => sum + (Number(s.dailyTrips) || 0), 0);
+    const regionMap = new Map();
+
+    stops.forEach((stop) => {
+      const region = getRegionName(stop);
+      const current = regionMap.get(region) || { name: region, total: 0, active: 0 };
+      current.total += 1;
+      if (stop.status === 'active') current.active += 1;
+      regionMap.set(region, current);
+    });
+
+    const topRegions = [...regionMap.values()]
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'vi'))
+      .slice(0, 6);
+
+    return {
+      total,
+      active,
+      busStations,
+      restStops,
+      inactive,
+      geocoded,
+      totalRoutes,
+      totalDailyTrips,
+      regions: regionMap.size,
+      topRegions,
+    };
   }, [stops]);
 
   const pageNumbers = useMemo(() => {
@@ -194,35 +416,193 @@ const StopsPage = () => {
       />
 
       <div
+        className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]"
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4,1fr)',
-          gap: 14,
           marginBottom: 24,
+          alignItems: 'stretch',
         }}
       >
-        <StatPill
-          label="Tổng điểm dừng"
-          value={loading ? '—' : String(stats.total)}
-          hint={`${stats.busStations} bến xe chính`}
-        />
-        <StatPill
-          label="Bến xe"
-          value={loading ? '—' : String(stats.busStations)}
-          hint="Có thể dùng làm điểm lên/xuống"
-          tone="teal"
-        />
-        <StatPill
-          label="Trạm dừng chân"
-          value={loading ? '—' : String(stats.restStops)}
-          hint="Dùng cho điểm giữa hành trình"
-        />
-        <StatPill
-          label="Ngừng hoạt động"
-          value={loading ? '—' : String(stats.inactive)}
-          hint="Không còn cho chọn khi tạo tuyến"
-          tone="warn"
-        />
+        <section
+          style={{
+            background: '#fff',
+            border: '1px solid var(--vxn-border)',
+            borderRadius: 12,
+            overflow: 'hidden',
+            minHeight: 420,
+          }}
+        >
+          <div
+            style={{
+              padding: '14px 16px',
+              borderBottom: '1px solid var(--vxn-border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <div>
+              <div style={{ font: '700 16px var(--font-display)', color: 'var(--vxn-ink)' }}>
+                Bản đồ điểm dừng theo khu vực
+              </div>
+              <div style={{ marginTop: 3, font: '400 12px var(--font-display)', color: 'var(--vxn-fg-5)' }}>
+                Hiển thị {stats.geocoded}/{stats.total} điểm có tọa độ trong danh mục.
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
+              {STOP_TYPE_OPTIONS.slice(0, 4).map((type) => (
+                <span
+                  key={type.value}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    font: '500 11px var(--font-display)',
+                    color: 'var(--vxn-fg-3)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: 999,
+                      background: type.color,
+                    }}
+                  />
+                  {type.label}
+                </span>
+              ))}
+            </div>
+          </div>
+          <StopsMap stops={stops} />
+        </section>
+
+        <aside
+          style={{
+            background: '#fff',
+            border: '1px solid var(--vxn-border)',
+            borderRadius: 12,
+            padding: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+            minHeight: 420,
+          }}
+        >
+          <div>
+            <div style={{ font: '700 16px var(--font-display)', color: 'var(--vxn-ink)' }}>
+              Thống kê tổng hợp
+            </div>
+            <div style={{ marginTop: 4, font: '400 12px var(--font-display)', color: 'var(--vxn-fg-5)' }}>
+              Theo toàn bộ danh mục điểm dừng hiện có của nhà xe.
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <SummaryMetric
+              label="Tổng điểm"
+              value={loading ? '—' : stats.total}
+              hint={`${stats.regions} khu vực`}
+              icon="map-pin"
+              tone="#006481"
+            />
+            <SummaryMetric
+              label="Đang dùng"
+              value={loading ? '—' : stats.active}
+              hint={`${stats.inactive} ngừng`}
+              icon="check-circle"
+              tone="#15803D"
+            />
+            <SummaryMetric
+              label="Bến xe"
+              value={loading ? '—' : stats.busStations}
+              hint="Điểm lên/xuống chính"
+              icon="building-2"
+              tone="#1D4ED8"
+            />
+            <SummaryMetric
+              label="Trạm dừng"
+              value={loading ? '—' : stats.restStops}
+              hint="Giữa hành trình"
+              icon="coffee"
+              tone="#B45309"
+            />
+            <SummaryMetric
+              label="Tuyến liên quan"
+              value={loading ? '—' : stats.totalRoutes}
+              hint="Tổng lượt gán tuyến"
+              icon="route"
+              tone="#7C3AED"
+            />
+            <SummaryMetric
+              label="Lượt/ngày"
+              value={loading ? '—' : stats.totalDailyTrips}
+              hint="Từ chuyến đang có"
+              icon="calendar-clock"
+              tone="#E89B26"
+            />
+          </div>
+
+          <div
+            style={{
+              borderTop: '1px solid var(--vxn-border)',
+              paddingTop: 14,
+              marginTop: 2,
+            }}
+          >
+            <div style={{ font: '700 13px var(--font-display)', color: 'var(--vxn-ink)' }}>
+              Khu vực nhiều điểm dừng
+            </div>
+            <div style={{ display: 'grid', gap: 9, marginTop: 10 }}>
+              {stats.topRegions.length > 0 ? (
+                stats.topRegions.map((region) => {
+                  const percent = stats.total ? Math.round((region.total / stats.total) * 100) : 0;
+                  return (
+                    <div key={region.name}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: 10,
+                          font: '500 12px var(--font-display)',
+                          color: 'var(--vxn-fg-2)',
+                        }}
+                      >
+                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {region.name}
+                        </span>
+                        <span style={{ color: 'var(--vxn-ink)' }}>{region.total}</span>
+                      </div>
+                      <div
+                        style={{
+                          height: 6,
+                          borderRadius: 999,
+                          background: '#EEF2F7',
+                          overflow: 'hidden',
+                          marginTop: 5,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${percent}%`,
+                            height: '100%',
+                            borderRadius: 999,
+                            background: 'var(--vxn-teal-700)',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div style={{ font: '400 12px var(--font-display)', color: 'var(--vxn-fg-5)' }}>
+                  Chưa có dữ liệu khu vực.
+                </div>
+              )}
+            </div>
+          </div>
+        </aside>
       </div>
 
       <div

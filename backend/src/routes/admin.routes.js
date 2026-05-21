@@ -8,6 +8,7 @@ const adminRouteController = require('../controllers/adminRoute.controller');
 const adminTripController = require('../controllers/adminTrip.controller');
 const adminPaymentController = require('../controllers/adminPayment.controller');
 const adminReviewController = require('../controllers/adminReview.controller');
+const voucherController = require('../controllers/voucher.controller');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
 const {
   validateLogin,
@@ -90,6 +91,15 @@ router.get('/trips', adminTripController.getAllTrips);
 // System payment oversight (read-only, cross-operator)
 router.get('/payments/statistics', adminPaymentController.getPaymentStatistics);
 router.get('/payments', adminPaymentController.getAllPayments);
+
+// Platform voucher management (global vouchers usable across operators)
+router.get('/vouchers/statistics', voucherController.getAdminVoucherStatistics);
+router.get('/vouchers', voucherController.getAdminVouchers);
+router.post('/vouchers', voucherController.createAdminVoucher);
+router.put('/vouchers/:id', voucherController.updateAdminVoucher);
+router.delete('/vouchers/:id', voucherController.deleteAdminVoucher);
+router.put('/vouchers/:id/activate', voucherController.activateAdminVoucher);
+router.put('/vouchers/:id/deactivate', voucherController.deactivateAdminVoucher);
 
 // System review moderation (cross-operator)
 router.get('/reviews/statistics', adminReviewController.getReviewStatistics);

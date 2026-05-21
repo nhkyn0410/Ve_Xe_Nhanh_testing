@@ -33,6 +33,11 @@ const validateTripId = [
 
 const validateVerifyQR = [
   body('qrCodeData').notEmpty().withMessage('Dữ liệu QR code là bắt buộc'),
+  body('confirmPayment')
+    .optional()
+    .isBoolean()
+    .withMessage('Xác nhận thanh toán phải là boolean')
+    .toBoolean(),
 ];
 
 /**

@@ -2,6 +2,7 @@ import {
   CustomerServiceOutlined,
   EditOutlined,
   FileTextOutlined,
+  GiftOutlined,
   HistoryOutlined,
   SafetyCertificateOutlined,
   StarFilled,
@@ -30,6 +31,13 @@ export const ACCOUNT_MENU_ITEMS = [
     description: 'Điểm thưởng, hạng thành viên và ưu đãi',
     to: '/loyalty',
     icon: StarFilled,
+  },
+  {
+    key: 'voucher-wallet',
+    label: 'Ví voucher',
+    description: 'Mã ưu đãi đã lưu và trạng thái sử dụng',
+    to: '/voucher-wallet',
+    icon: GiftOutlined,
   },
   {
     key: 'loyalty-history',

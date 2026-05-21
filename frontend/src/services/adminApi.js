@@ -310,6 +310,38 @@ export const adminReviews = {
   },
 };
 
+// ============= PLATFORM VOUCHERS =============
+
+export const adminVouchers = {
+  getVouchers: async (params) => {
+    return await api.get('/admin/vouchers', { params });
+  },
+
+  getStatistics: async () => {
+    return await api.get('/admin/vouchers/statistics');
+  },
+
+  create: async (data) => {
+    return await api.post('/admin/vouchers', data);
+  },
+
+  update: async (id, data) => {
+    return await api.put(`/admin/vouchers/${id}`, data);
+  },
+
+  delete: async (id) => {
+    return await api.delete(`/admin/vouchers/${id}`);
+  },
+
+  activate: async (id) => {
+    return await api.put(`/admin/vouchers/${id}/activate`);
+  },
+
+  deactivate: async (id) => {
+    return await api.put(`/admin/vouchers/${id}/deactivate`);
+  },
+};
+
 // ============= CONTENT MANAGEMENT (UC-24) =============
 
 export const adminContent = {
@@ -358,4 +390,5 @@ export default {
   trips: adminTrips,
   payments: adminPayments,
   reviews: adminReviews,
+  vouchers: adminVouchers,
 };

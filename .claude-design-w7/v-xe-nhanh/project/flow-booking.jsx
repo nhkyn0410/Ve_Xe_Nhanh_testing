@@ -619,7 +619,7 @@ function PaymentMethodScreen() {
               <PaymentMethod logo="zalo" name="ZaloPay" desc="Quét QR Zalo" />
               <PaymentMethod logo="visa" name="Thẻ Visa/Master" desc="Quốc tế" />
               <PaymentMethod logo="atm" name="Thẻ ATM" desc="Internet Banking 30+ ngân hàng" />
-              <PaymentMethod logo="cash" name="Tiền mặt" desc="Trả tại văn phòng (giữ ghế 24h)" />
+              <PaymentMethod logo="cash" name="Tiền mặt" desc="Thanh toán khi lên xe" />
             </div>
           </Card>
 
