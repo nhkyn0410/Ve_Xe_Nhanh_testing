@@ -137,8 +137,8 @@ const PAYMENT_METHODS = [
     description: 'Internet Banking 30+ ngân hàng',
     logo: 'ATM',
     logoSrc: atmLogo,
-    logoFrameClassName: 'h-14 w-[68px] p-1',
-    logoImageClassName: 'h-full w-full scale-[1.12]',
+    logoFrameClassName: 'h-12 w-14 p-1.5',
+    logoImageClassName: 'h-full w-full',
     color: '#E39A22',
     enabled: true,
   },
@@ -166,8 +166,8 @@ const BANK_OPTIONS = [
     name: 'VIB',
     color: '#263B80',
     logoSrc: vibLogo,
-    logoFrameClassName: 'h-10 w-full max-w-[108px] px-2 py-1',
-    logoImageClassName: 'h-[82%] w-[94%]',
+    logoFrameClassName: 'h-14 w-full max-w-[118px] border-0 px-2 py-1',
+    logoImageClassName: 'h-full w-full',
   },
   { code: 'ACB', name: 'ACB', color: '#115FAE', logoSrc: acbLogo },
   { code: 'TPB', name: 'TPBank', color: '#F6A800', logoSrc: tpbankLogo },
@@ -1009,8 +1009,10 @@ const PassengerInfoPage = () => {
                           <button
                             key={bank.code}
                             type="button"
+                            aria-label={`Chọn ngân hàng ${bank.name}`}
                             aria-pressed={active}
-                            className={`flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-[10px] border bg-white px-2 py-3 text-center transition focus:outline-none focus-visible:ring-2 focus-visible:ring-vxn-teal-700 ${
+                            title={bank.name}
+                            className={`grid min-h-[88px] place-items-center rounded-[10px] border bg-white px-4 py-4 text-center transition focus:outline-none focus-visible:ring-2 focus-visible:ring-vxn-teal-700 ${
                               active
                                 ? 'border-vxn-teal-700 bg-[#E7F4FA] shadow-sm'
                                 : 'border-vxn-border hover:border-vxn-teal-300'
@@ -1019,12 +1021,11 @@ const PassengerInfoPage = () => {
                           >
                             <PaymentLogo
                               item={bank}
-                              className={bank.logoFrameClassName || 'h-9 w-full max-w-[92px] p-1'}
+                              className={
+                                bank.logoFrameClassName || 'h-14 w-full max-w-[118px] border-0 p-0'
+                              }
                               imageClassName={bank.logoImageClassName}
                             />
-                            <span className="text-[11px] font-medium text-vxn-fg-2">
-                              {bank.name}
-                            </span>
                           </button>
                         );
                       })}
