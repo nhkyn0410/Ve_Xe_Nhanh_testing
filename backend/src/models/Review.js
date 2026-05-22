@@ -74,7 +74,7 @@ const reviewSchema = new mongoose.Schema(
     images: {
       type: [String],
       validate: {
-        validator: function (v) {
+        validator(v) {
           return v.length <= 5;
         },
         message: 'Tối đa 5 hình ảnh',
@@ -110,9 +110,10 @@ const reviewSchema = new mongoose.Schema(
     timestamps: true,
     toJSON: {
       virtuals: true,
-      transform: function (doc, ret) {
-        delete ret.__v;
-        return ret;
+      transform(_doc, ret) {
+        const sanitizedRet = { ...ret };
+        Reflect.deleteProperty(sanitizedRet, '__v');
+        return sanitizedRet;
       },
     },
     toObject: { virtuals: true },

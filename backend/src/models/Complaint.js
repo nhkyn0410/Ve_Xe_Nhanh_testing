@@ -66,7 +66,7 @@ const complaintSchema = new mongoose.Schema(
     },
     operatorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Operator',
+      ref: 'BusOperator',
     },
     tripId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -170,8 +170,8 @@ complaintSchema.index({ assignedTo: 1 });
 complaintSchema.index({ bookingId: 1 });
 complaintSchema.index({ createdAt: -1 });
 
-// Generate unique ticket number before saving
-complaintSchema.pre('save', async function (next) {
+// Generate unique ticket number before validation so the required check passes.
+complaintSchema.pre('validate', async function (next) {
   if (this.isNew && !this.ticketNumber) {
     // Generate ticket number: TCKT-YYYYMMDD-XXXXX
     const date = new Date();

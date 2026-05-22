@@ -107,6 +107,33 @@ exports.getMyRoutes = async (req, res, next) => {
 };
 
 /**
+ * @route   GET /api/v1/operators/stops
+ * @desc    Lấy danh sách điểm dừng tổng hợp từ tất cả tuyến của operator
+ * @access  Private (Operator)
+ */
+exports.getStops = async (req, res, next) => {
+  try {
+    const operatorId = req.userId;
+
+    const stops = await RouteService.getStops(operatorId);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        stops,
+        total: stops.length,
+      },
+    });
+  } catch (error) {
+    logger.error('Lỗi lấy điểm dừng:', error);
+    res.status(400).json({
+      status: 'error',
+      message: error.message || 'Lấy danh sách điểm dừng thất bại',
+    });
+  }
+};
+
+/**
  * @route   GET /api/v1/operators/routes/:id
  * @desc    Lấy thông tin route theo ID
  * @access  Private (Operator)

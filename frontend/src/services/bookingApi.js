@@ -47,9 +47,18 @@ export const confirmBooking = async (bookingId, sessionId) => {
   return api.post(`/bookings/${bookingId}/confirm`, { sessionId });
 };
 
-// Get booking by code
-export const getBookingByCode = async (bookingCode) => {
-  return api.get(`/bookings/code/${bookingCode}`);
+// Get booking by code (optional phone/email for guest lookup)
+export const getBookingByCode = async (bookingCode, verification) => {
+  const params =
+    typeof verification === 'string'
+      ? { phone: verification }
+      : Object.fromEntries(
+          Object.entries(verification || {}).filter(([, value]) => Boolean(value))
+        );
+
+  return api.get(`/bookings/code/${bookingCode}`, {
+    params: Object.keys(params).length > 0 ? params : undefined,
+  });
 };
 
 // Cancel booking
@@ -98,8 +107,25 @@ export const validateVoucher = async (code, bookingInfo) => {
 
 // Get public vouchers
 export const getPublicVouchers = async (filters) => {
-  const queryString = new URLSearchParams(filters).toString();
-  return api.get(`/vouchers/public?${queryString}`);
+  const cleanFilters = Object.fromEntries(
+    Object.entries(filters || {}).filter(([, value]) => Boolean(value))
+  );
+  return api.get('/vouchers/public', { params: cleanFilters });
+};
+
+// Get current customer's voucher wallet
+export const getVoucherWallet = async () => {
+  return api.get('/vouchers/wallet');
+};
+
+// Save a voucher to current customer's wallet
+export const saveVoucherToWallet = async (voucher) => {
+  return api.post('/vouchers/wallet', voucher);
+};
+
+// Remove a voucher from current customer's wallet
+export const removeVoucherFromWallet = async (voucherId) => {
+  return api.delete(`/vouchers/wallet/${voucherId}`);
 };
 
 export default {
@@ -121,4 +147,7 @@ export default {
   queryPaymentStatus,
   validateVoucher,
   getPublicVouchers,
+  getVoucherWallet,
+  saveVoucherToWallet,
+  removeVoucherFromWallet,
 };

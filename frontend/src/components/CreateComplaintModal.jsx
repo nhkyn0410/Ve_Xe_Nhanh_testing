@@ -1,55 +1,39 @@
 import { useState } from 'react';
-import {
-  Modal,
-  Form,
-  Input,
-  Select,
-  Upload,
-  Button,
-  message,
-  Space,
-  Alert,
-} from 'antd';
-import {
-  ExclamationCircleOutlined,
-  InboxOutlined,
-  FileTextOutlined,
-} from '@ant-design/icons';
-import { MdReportProblem } from 'react-icons/md';
-import { FaTicketAlt } from 'react-icons/fa';
+import { Modal, Form, Input, Select, Upload, Button, message } from 'antd';
+import { InboxOutlined } from '@ant-design/icons';
 import { createComplaint } from '../services/complaintApi';
 
 const { TextArea } = Input;
-const { Option } = Select;
 const { Dragger } = Upload;
+
+const TEAL = '#036672';
+
+const CATEGORIES = [
+  { value: 'booking', label: 'Đặt vé', icon: '🎫' },
+  { value: 'payment', label: 'Thanh toán', icon: '💳' },
+  { value: 'service', label: 'Dịch vụ', icon: '🤝' },
+  { value: 'driver', label: 'Tài xế', icon: '👨‍✈️' },
+  { value: 'vehicle', label: 'Xe', icon: '🚌' },
+  { value: 'refund', label: 'Hoàn tiền', icon: '💰' },
+  { value: 'technical', label: 'Kỹ thuật', icon: '⚙️' },
+  { value: 'other', label: 'Khác', icon: '📝' },
+];
+
+const PRIORITIES = [
+  { value: 'low', label: 'Thấp', color: '#52c41a' },
+  { value: 'medium', label: 'Trung bình', color: '#1890ff' },
+  { value: 'high', label: 'Cao', color: '#fa8c16' },
+  { value: 'urgent', label: 'Khẩn cấp', color: '#f5222d' },
+];
 
 const CreateComplaintModal = ({ open, onCancel, onSuccess, booking = null }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [fileList, setFileList] = useState([]);
 
-  const categories = [
-    { value: 'booking', label: 'Đặt vé', icon: '🎫' },
-    { value: 'payment', label: 'Thanh toán', icon: '💳' },
-    { value: 'service', label: 'Dịch vụ', icon: '🤝' },
-    { value: 'driver', label: 'Tài xế', icon: '👨‍✈️' },
-    { value: 'vehicle', label: 'Xe', icon: '🚌' },
-    { value: 'refund', label: 'Hoàn tiền', icon: '💰' },
-    { value: 'technical', label: 'Kỹ thuật', icon: '⚙️' },
-    { value: 'other', label: 'Khác', icon: '📝' },
-  ];
-
-  const priorities = [
-    { value: 'low', label: 'Thấp', color: '#52c41a' },
-    { value: 'medium', label: 'Trung bình', color: '#1890ff' },
-    { value: 'high', label: 'Cao', color: '#fa8c16' },
-    { value: 'urgent', label: 'Khẩn cấp', color: '#f5222d' },
-  ];
-
   const handleSubmit = async (values) => {
     try {
       setLoading(true);
-
       const complaintData = {
         subject: values.subject,
         description: values.description,
@@ -66,14 +50,16 @@ const CreateComplaintModal = ({ open, onCancel, onSuccess, booking = null }) => 
       const response = await createComplaint(complaintData);
 
       if (response.status === 'success') {
-        message.success('Tạo khiếu nại thành công! Mã ticket: ' + response.data.ticketNumber);
+        message.success(
+          'Tạo khiếu nại thành công! Mã ticket: ' + response.data.ticketNumber
+        );
         form.resetFields();
         setFileList([]);
         onSuccess && onSuccess(response.data);
       }
     } catch (error) {
       console.error('Error creating complaint:', error);
-      message.error(error.response?.data?.message || 'Không thể tạo khiếu nại');
+      message.error(error?.message || 'Không thể tạo khiếu nại');
     } finally {
       setLoading(false);
     }
@@ -87,19 +73,15 @@ const CreateComplaintModal = ({ open, onCancel, onSuccess, booking = null }) => 
 
   const uploadProps = {
     multiple: true,
-    fileList: fileList,
+    fileList,
     beforeUpload: (file) => {
-      // Check file size (max 5MB)
       const isLt5M = file.size / 1024 / 1024 < 5;
       if (!isLt5M) {
         message.error('File phải nhỏ hơn 5MB!');
         return false;
       }
-
-      // For now, just store the file in state
-      // In production, you'd upload to a file storage service
       setFileList((prev) => [...prev, file]);
-      return false; // Prevent auto upload
+      return false; // prevent auto upload
     },
     onRemove: (file) => {
       setFileList((prev) => prev.filter((f) => f.uid !== file.uid));
@@ -109,100 +91,76 @@ const CreateComplaintModal = ({ open, onCancel, onSuccess, booking = null }) => 
   return (
     <Modal
       title={
-        <Space>
-          <MdReportProblem className="text-orange-500 text-2xl" />
-          <span className="text-lg font-semibold">Tạo khiếu nại</span>
-        </Space>
+        <span className="text-[17px] font-semibold text-vxn-ink">
+          Gửi khiếu nại
+        </span>
       }
       open={open}
       onCancel={handleCancel}
       footer={null}
-      width={700}
-      destroyOnClose
+      width={680}
+      destroyOnHidden
     >
-      {/* Info Alert */}
-      <Alert
-        message="Chúng tôi sẽ xử lý khiếu nại của bạn trong vòng 24-48 giờ"
-        description="Vui lòng cung cấp đầy đủ thông tin để chúng tôi có thể hỗ trợ bạn tốt nhất."
-        type="info"
-        showIcon
-        className="mb-4"
-        icon={<ExclamationCircleOutlined />}
-      />
+      <div className="mb-5 rounded-xl border border-vxn-border bg-vxn-bg-soft px-4 py-3">
+        <div className="text-[13px] font-medium text-vxn-ink">
+          Chúng tôi xử lý khiếu nại trong vòng 24–48 giờ
+        </div>
+        <div className="mt-0.5 text-[12px] text-vxn-fg-4">
+          Vui lòng cung cấp đầy đủ thông tin để được hỗ trợ tốt nhất.
+        </div>
+      </div>
 
-      {/* Booking Info if provided */}
       {booking && (
-        <Alert
-          message={
-            <Space>
-              <FaTicketAlt />
-              <span>
-                Khiếu nại cho vé: <strong>{booking.bookingCode}</strong>
-              </span>
-            </Space>
-          }
-          type="success"
-          className="mb-4"
-        />
+        <div
+          className="mb-5 rounded-xl px-4 py-3 text-[13px]"
+          style={{ background: '#D8F5E6', color: '#0F8458' }}
+        >
+          Khiếu nại cho vé{' '}
+          <strong className="font-mono">{booking.bookingCode}</strong>
+        </div>
       )}
 
       <Form
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
-        initialValues={{
-          priority: 'medium',
-        }}
+        initialValues={{ priority: 'medium' }}
+        requiredMark={false}
       >
-        {/* Category */}
-        <Form.Item
-          label={
-            <span className="font-semibold">
-              <FileTextOutlined className="mr-1" />
-              Danh mục khiếu nại
-            </span>
-          }
-          name="category"
-          rules={[{ required: true, message: 'Vui lòng chọn danh mục!' }]}
-        >
-          <Select
-            placeholder="Chọn danh mục khiếu nại"
-            size="large"
-            showSearch
-            optionFilterProp="children"
+        <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+          <Form.Item
+            label={<span className="font-medium">Danh mục</span>}
+            name="category"
+            rules={[{ required: true, message: 'Vui lòng chọn danh mục!' }]}
           >
-            {categories.map((cat) => (
-              <Option key={cat.value} value={cat.value}>
-                <span className="mr-2">{cat.icon}</span>
-                {cat.label}
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
+            <Select
+              placeholder="Chọn danh mục khiếu nại"
+              size="large"
+              showSearch
+              optionFilterProp="label"
+              options={CATEGORIES.map((c) => ({
+                value: c.value,
+                label: `${c.icon}  ${c.label}`,
+              }))}
+            />
+          </Form.Item>
 
-        {/* Priority */}
-        <Form.Item
-          label={<span className="font-semibold">Mức độ ưu tiên</span>}
-          name="priority"
-        >
-          <Select size="large">
-            {priorities.map((p) => (
-              <Option key={p.value} value={p.value}>
-                <Space>
-                  <div
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: p.color }}
-                  />
-                  {p.label}
-                </Space>
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
+          <Form.Item
+            label={<span className="font-medium">Mức độ ưu tiên</span>}
+            name="priority"
+          >
+            <Select
+              size="large"
+              options={PRIORITIES.map((p) => ({
+                value: p.value,
+                label: p.label,
+              }))}
+            />
+          </Form.Item>
+        </div>
 
-        {/* Subject */}
         <Form.Item
-          label={<span className="font-semibold">Tiêu đề</span>}
+          label={<span className="font-medium">Tiêu đề</span>}
           name="subject"
           rules={[
             { required: true, message: 'Vui lòng nhập tiêu đề!' },
@@ -210,16 +168,15 @@ const CreateComplaintModal = ({ open, onCancel, onSuccess, booking = null }) => 
           ]}
         >
           <Input
-            placeholder="Nhập tiêu đề ngắn gọn cho khiếu nại"
+            placeholder="Tiêu đề ngắn gọn cho khiếu nại"
             size="large"
             showCount
             maxLength={200}
           />
         </Form.Item>
 
-        {/* Description */}
         <Form.Item
-          label={<span className="font-semibold">Mô tả chi tiết</span>}
+          label={<span className="font-medium">Mô tả chi tiết</span>}
           name="description"
           rules={[
             { required: true, message: 'Vui lòng mô tả chi tiết vấn đề!' },
@@ -228,49 +185,44 @@ const CreateComplaintModal = ({ open, onCancel, onSuccess, booking = null }) => 
         >
           <TextArea
             rows={6}
-            placeholder="Vui lòng mô tả chi tiết vấn đề của bạn..."
+            placeholder="Mô tả chi tiết vấn đề của bạn (thời gian, địa điểm, diễn biến...)"
             showCount
             maxLength={2000}
           />
         </Form.Item>
 
-        {/* File Upload */}
-        <Form.Item
-          label={<span className="font-semibold">Tệp đính kèm (tùy chọn)</span>}
-        >
+        <Form.Item label={<span className="font-medium">Tệp đính kèm (tùy chọn)</span>}>
           <Dragger {...uploadProps}>
             <p className="ant-upload-drag-icon">
-              <InboxOutlined />
+              <InboxOutlined style={{ color: TEAL }} />
             </p>
             <p className="ant-upload-text">Nhấp hoặc kéo thả file vào đây</p>
             <p className="ant-upload-hint">
-              Hỗ trợ file ảnh, PDF, Word. Tối đa 5MB mỗi file.
+              Hỗ trợ ảnh, PDF, Word. Tối đa 5MB mỗi file.
             </p>
           </Dragger>
           {fileList.length > 0 && (
-            <div className="mt-2 text-sm text-gray-600">
+            <div className="mt-2 text-[12px] text-vxn-fg-4">
               Đã chọn {fileList.length} file
             </div>
           )}
         </Form.Item>
 
-        {/* Submit Buttons */}
-        <Form.Item className="mb-0">
-          <Space className="w-full justify-end">
-            <Button onClick={handleCancel} size="large">
-              Hủy
-            </Button>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={loading}
-              size="large"
-              icon={<MdReportProblem />}
-            >
-              Gửi khiếu nại
-            </Button>
-          </Space>
-        </Form.Item>
+        <div className="mt-2 flex justify-end gap-2">
+          <Button onClick={handleCancel} size="large" className="!rounded-lg">
+            Hủy
+          </Button>
+          <Button
+            type="primary"
+            htmlType="submit"
+            loading={loading}
+            size="large"
+            className="!rounded-lg"
+            style={{ background: TEAL, borderColor: TEAL }}
+          >
+            Gửi khiếu nại
+          </Button>
+        </div>
       </Form>
     </Modal>
   );

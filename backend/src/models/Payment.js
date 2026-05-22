@@ -65,7 +65,15 @@ const PaymentSchema = new mongoose.Schema(
     // Payment status
     status: {
       type: String,
-      enum: ['pending', 'processing', 'completed', 'failed', 'cancelled', 'refunded', 'partial_refund'],
+      enum: [
+        'pending',
+        'processing',
+        'completed',
+        'failed',
+        'cancelled',
+        'refunded',
+        'partial_refund',
+      ],
       default: 'pending',
       index: true,
     },
@@ -304,16 +312,19 @@ PaymentSchema.methods.setPaymentUrl = function (url, expiryMinutes = 15) {
 PaymentSchema.statics.generatePaymentCode = async function () {
   const date = new Date();
   const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-  let code;
-  let exists = true;
-
-  while (exists) {
+  const generateUniqueCode = async () => {
     const random = Math.floor(10000000 + Math.random() * 90000000);
-    code = `PAY${dateStr}${random}`;
-    exists = await this.exists({ paymentCode: code });
-  }
+    const code = `PAY${dateStr}${random}`;
+    const exists = await this.exists({ paymentCode: code });
 
-  return code;
+    if (exists) {
+      return generateUniqueCode();
+    }
+
+    return code;
+  };
+
+  return generateUniqueCode();
 };
 
 /**
@@ -322,7 +333,7 @@ PaymentSchema.statics.generatePaymentCode = async function () {
 PaymentSchema.statics.findByBooking = function (bookingId) {
   return this.find({ bookingId })
     .populate('customerId', 'fullName email phone')
-    .populate('operatorId', 'companyName email phone')
+    .populate('operatorId', 'operatorName companyName email phone')
     .sort({ createdAt: -1 });
 };
 
@@ -349,7 +360,7 @@ PaymentSchema.statics.findByCustomer = function (customerId, filters = {}) {
 
   return this.find(query)
     .populate('bookingId')
-    .populate('operatorId', 'companyName')
+    .populate('operatorId', 'operatorName companyName')
     .sort({ createdAt: -1 });
 };
 
@@ -375,7 +386,14 @@ PaymentSchema.statics.findByOperator = function (operatorId, filters = {}) {
   }
 
   return this.find(query)
-    .populate('bookingId')
+    .populate({
+      path: 'bookingId',
+      populate: {
+        path: 'tripId',
+        select: 'departureTime arrivalTime routeId',
+        populate: { path: 'routeId', select: 'routeName routeCode origin destination' },
+      },
+    })
     .populate('customerId', 'fullName email phone')
     .sort({ createdAt: -1 });
 };

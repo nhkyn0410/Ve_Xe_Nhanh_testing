@@ -1,4 +1,5 @@
 const express = require('express');
+
 const router = express.Router();
 const reviewController = require('../controllers/review.controller');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
@@ -43,6 +44,14 @@ router.get(
   authenticate,
   authorize('customer'),
   reviewController.getMyReviews
+);
+
+// Get bookings awaiting a review (Customer only)
+router.get(
+  '/users/pending-reviews',
+  authenticate,
+  authorize('customer'),
+  reviewController.getPendingReviews
 );
 
 // Add operator response to review (Operator only)

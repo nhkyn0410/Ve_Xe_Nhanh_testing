@@ -1,6 +1,11 @@
+const mongoose = require('mongoose');
 const BusOperator = require('../models/BusOperator');
+const Bus = require('../models/Bus');
+const Review = require('../models/Review');
+const Route = require('../models/Route');
+const Trip = require('../models/Trip');
 const AuthService = require('./auth.service');
-const logger = require('../utils/logger');
+
 
 /**
  * Operator Service
@@ -15,6 +20,7 @@ class OperatorService {
   static async register(operatorData) {
     const {
       companyName,
+      operatorName,
       email,
       phone,
       password,
@@ -41,6 +47,7 @@ class OperatorService {
     // Tạo operator mới
     const operator = await BusOperator.create({
       companyName,
+      operatorName: operatorName || companyName,
       email: email.toLowerCase(),
       phone,
       password,
@@ -129,6 +136,159 @@ class OperatorService {
     };
   }
 
+  static getInitials(companyName = 'NX') {
+    return companyName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase();
+  }
+
+  static getBrandColor(operatorId = '') {
+    const palette = ['#E89B26', '#006481', '#1D4ED8', '#00613D', '#D18A1E'];
+    const index = String(operatorId)
+      .split('')
+      .reduce((sum, char) => sum + char.charCodeAt(0), 0) % palette.length;
+    return palette[index];
+  }
+
+  static formatFullAddress(address = {}) {
+    return [address.street, address.ward, address.district, address.city, address.country]
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  static async getPublicProfile(operatorId) {
+    const objectId = new mongoose.Types.ObjectId(operatorId);
+    const now = new Date();
+
+    const [operator, fleetSize, routes, routeStats, ratingSummary, reviews] = await Promise.all([
+      BusOperator.findOne({ _id: objectId, isActive: true, isSuspended: false }).lean(),
+      Bus.countDocuments({ operatorId: objectId, status: { $ne: 'retired' } }),
+      Route.find({ operatorId: objectId, isActive: true })
+        .sort({ createdAt: -1 })
+        .limit(8)
+        .lean(),
+      Trip.aggregate([
+        {
+          $match: {
+            operatorId: objectId,
+            status: 'scheduled',
+            departureTime: { $gte: now },
+          },
+        },
+        {
+          $group: {
+            _id: '$routeId',
+            trips: { $sum: 1 },
+            minPrice: { $min: '$finalPrice' },
+            maxPrice: { $max: '$finalPrice' },
+          },
+        },
+      ]),
+      Review.aggregate([
+        { $match: { operatorId: objectId, isPublished: true } },
+        {
+          $group: {
+            _id: null,
+            averageRating: { $avg: '$overallRating' },
+            totalReviews: { $sum: 1 },
+            averageVehicleRating: { $avg: '$vehicleRating' },
+            averageDriverRating: { $avg: '$driverRating' },
+            averagePunctualityRating: { $avg: '$punctualityRating' },
+            averageServiceRating: { $avg: '$serviceRating' },
+          },
+        },
+      ]),
+      Review.find({ operatorId: objectId, isPublished: true })
+        .populate('userId', 'fullName avatar')
+        .populate({
+          path: 'tripId',
+          select: 'routeId departureTime',
+          populate: {
+            path: 'routeId',
+            select: 'origin destination',
+          },
+        })
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean(),
+    ]);
+
+    if (!operator) {
+      throw new Error('Nhà xe không tồn tại hoặc đang tạm ngưng');
+    }
+
+    const statsByRoute = new Map(routeStats.map((stat) => [String(stat._id), stat]));
+    const rating = ratingSummary[0] || {};
+    const averageRating = Number((rating.averageRating || operator.averageRating || 0).toFixed(1));
+    const totalReviews = rating.totalReviews || operator.totalReviews || 0;
+    const displayName = operator.operatorName || operator.companyName;
+
+    return {
+      operator: {
+        id: operator._id,
+        companyName: operator.companyName,
+        operatorName: displayName,
+        shortName: OperatorService.getInitials(displayName),
+        color: OperatorService.getBrandColor(operator._id),
+        logo: operator.logo,
+        description: operator.description,
+        email: operator.email,
+        phone: operator.phone,
+        website: operator.website,
+        address: operator.address,
+        fullAddress: OperatorService.formatFullAddress(operator.address),
+        averageRating,
+        totalReviews,
+        fleetSize,
+        routeCount: routes.length,
+        totalTrips: operator.totalTrips,
+        foundedYear: (operator.verifiedAt || operator.createdAt)?.getFullYear?.(),
+        verificationStatus: operator.verificationStatus,
+      },
+      activeRoutes: routes.map((route) => {
+        const stats = statsByRoute.get(String(route._id));
+        return {
+          id: route._id,
+          name: route.routeName,
+          code: route.routeCode,
+          from: route.origin?.city || route.origin?.province,
+          to: route.destination?.city || route.destination?.province,
+          distance: route.distance,
+          duration: route.estimatedDuration,
+          tripsPerDay: stats?.trips || 0,
+          minPrice: stats?.minPrice || 0,
+          maxPrice: stats?.maxPrice || 0,
+        };
+      }),
+      ratingSummary: {
+        averageRating,
+        totalReviews,
+        averageVehicleRating: Number((rating.averageVehicleRating || 0).toFixed(1)),
+        averageDriverRating: Number((rating.averageDriverRating || 0).toFixed(1)),
+        averagePunctualityRating: Number((rating.averagePunctualityRating || 0).toFixed(1)),
+        averageServiceRating: Number((rating.averageServiceRating || 0).toFixed(1)),
+      },
+      reviews: reviews.map((review) => ({
+        id: review._id,
+        customerName: review.userId?.fullName || 'Khách hàng',
+        avatar: review.userId?.avatar,
+        rating: review.overallRating,
+        comment: review.comment,
+        createdAt: review.createdAt,
+        route: review.tripId?.routeId ? {
+          from: review.tripId.routeId.origin?.city,
+          to: review.tripId.routeId.destination?.city,
+        } : null,
+        tripDate: review.tripId?.departureTime,
+        operatorResponse: review.operatorResponse,
+      })),
+    };
+  }
+
   /**
    * Lấy thông tin operator theo ID
    * @param {String} operatorId - Operator ID
@@ -174,6 +334,13 @@ class OperatorService {
     restrictedFields.forEach((field) => {
       delete updateData[field];
     });
+
+    if (Object.prototype.hasOwnProperty.call(updateData, 'operatorName')) {
+      updateData.operatorName = String(updateData.operatorName || '').trim();
+      if (!updateData.operatorName) {
+        throw new Error('Tên hiển thị nhà xe không được để trống');
+      }
+    }
 
     // Cập nhật operator
     Object.assign(operator, updateData);
@@ -312,6 +479,7 @@ class OperatorService {
 
     if (search) {
       query.$or = [
+        { operatorName: { $regex: search, $options: 'i' } },
         { companyName: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
         { phone: { $regex: search, $options: 'i' } },

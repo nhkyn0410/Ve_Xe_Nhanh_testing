@@ -1,138 +1,141 @@
-import { Link, useLocation } from 'react-router-dom';
-import {
-  DashboardOutlined,
-  CarOutlined,
-  EnvironmentOutlined,
-  TeamOutlined,
-  BarChartOutlined,
-  GiftOutlined,
-  CalendarOutlined,
-  RocketOutlined,
-  ThunderboltOutlined,
-  TrophyOutlined,
-} from '@ant-design/icons';
+/**
+ * Operator portal sidebar — faithful port of the "Trang quản lý nhà xe"
+ * design package chrome.jsx Sidebar, adapted to React Router.
+ * White surface, 232px, 9 nav items, sticky, logout footer.
+ */
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import useOperatorAuthStore from '../../store/operatorAuthStore';
+import logoMark from '../../assets/brand/logo-icon_background_white_notext.svg';
+import { VxnIcon } from './vxn';
 
-import Icon from "../Icon";
+const OP_NAV = [
+  { key: 'dashboard', label: 'Dashboard', icon: 'layout-grid', path: '/operator/dashboard' },
+  { key: 'routes', label: 'Quản lý tuyến đường', icon: 'map', path: '/operator/routes' },
+  { key: 'stops', label: 'Quản lý điểm dừng', icon: 'map-pin', path: '/operator/stops' },
+  { key: 'buses', label: 'Quản lý đội xe', icon: 'bus', path: '/operator/buses' },
+  { key: 'employees', label: 'Quản lý nhân viên', icon: 'contact', path: '/operator/employees' },
+  { key: 'trips', label: 'Quản lý chuyến xe', icon: 'route', path: '/operator/trips' },
+  {
+    key: 'transactions',
+    label: 'Quản lý giao dịch',
+    icon: 'wallet',
+    path: '/operator/transactions',
+  },
+  { key: 'vouchers', label: 'Quản lý mã giảm', icon: 'badge-percent', path: '/operator/vouchers' },
+  { key: 'reports', label: 'Báo cáo', icon: 'chart-column', path: '/operator/reports' },
+  { key: 'profile', label: 'Hồ sơ nhà xe', icon: 'settings', path: '/operator/profile' },
+];
+
+const VxnLogo = () => {
+  // V-mark + saffron streak — distilled from the brand SVG
+  return <img src={logoMark} alt="Vé Xe Nhanh" style={{ height: 38, objectFit: 'contain' }} />;
+};
 
 const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useOperatorAuthStore();
 
-  const menuItems = [
-    {
-      key: 'dashboard',
-      path: '/operator/dashboard',
-      icon: <DashboardOutlined />,
-      label: 'Dashboard',
-    },
-    {
-      key: 'routes',
-      path: '/operator/routes',
-      icon: <EnvironmentOutlined />,
-      label: 'Tuyến Đường',
-    },
-    {
-      key: 'buses',
-      path: '/operator/buses',
-      icon: <CarOutlined />,
-      label: 'Quản Lý Xe',
-    },
-    {
-      key: 'trips',
-      path: '/operator/trips',
-      icon: <CalendarOutlined />,
-      label: 'Chuyến Xe',
-    },
-    {
-      key: 'employees',
-      path: '/operator/employees',
-      icon: <TeamOutlined />,
-      label: 'Nhân Viên',
-    },
-    {
-      key: 'reports',
-      path: '/operator/reports',
-      icon: <BarChartOutlined />,
-      label: 'Báo Cáo',
-    },
-    {
-      key: 'vouchers',
-      path: '/operator/vouchers',
-      icon: <GiftOutlined />,
-      label: 'Voucher',
-    },
-  ];
-
-  const isActive = (path) => location.pathname === path;
+  const handleLogout = () => {
+    logout();
+    navigate('/operator/login');
+  };
 
   return (
-    <div className="h-full bg-gradient-to-b from-red-900 via-red-800 to-red-900 text-white flex flex-col shadow-2xl relative overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-red-400/20 to-orange-600/20"></div>
-      </div>
-      
-      {/* Logo */}
-      <div className="p-6 border-b border-blue-700/50">
-        <Link to="/operator/dashboard" className="flex items-center space-x-3 group">
-          <div className="w-12 h-12 bg-gradient-to-b from-red-900 via-red-600 to-red-900 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
-            <span className="text-2xl"><Icon name="Bus" className="text-white"/></span>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-white">Vé xe nhanh</h1>
-            <p className="text-xs text-blue-300">Operator Dashboard</p>
+    <aside
+      style={{
+        width: 232,
+        minHeight: '100vh',
+        background: '#fff',
+        borderRight: '1px solid var(--vxn-border)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        position: 'sticky',
+        top: 0,
+        alignSelf: 'flex-start',
+        flexShrink: 0,
+      }}
+    >
+      <div>
+        <Link
+          to="/operator/dashboard"
+          style={{
+            padding: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            borderBottom: '1px solid var(--vxn-border)',
+            height: 73,
+            boxSizing: 'border-box',
+          }}
+        >
+          <VxnLogo />
+          <div
+            style={{
+              font: '600 16px var(--font-display)',
+              color: 'var(--vxn-ink)',
+              lineHeight: 1.2,
+              textAlign: 'center',
+            }}
+          >
+            Trang quản lý
+            <br />
+            nhà xe
           </div>
         </Link>
+
+        <nav style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {OP_NAV.map((item) => {
+            const on = location.pathname.startsWith(item.path);
+            return (
+              <Link
+                key={item.key}
+                to={item.path}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '11px 14px',
+                  borderRadius: 8,
+                  background: on ? '#E8F0FE' : 'transparent',
+                  color: on ? 'var(--vxn-teal-800)' : 'var(--vxn-fg-2)',
+                  border: 0,
+                  cursor: 'pointer',
+                  font: `${on ? 500 : 400} 14px var(--font-display)`,
+                  textAlign: 'left',
+                }}
+              >
+                <VxnIcon name={item.icon} size={18} style={{ opacity: on ? 1 : 0.75 }} />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
 
-      {/* Navigation */}
-      <nav className="relative flex-1 p-4 space-y-2 overflow-y-auto">
-        {menuItems.map((item) => (
-          <Link
-            key={item.key}
-            to={item.path}
-            className={`
-              relative flex items-center space-x-4 px-4 py-4 rounded-xl transition-all duration-300 group overflow-hidden
-              ${
-                isActive(item.path)
-                  ? 'bg-gradient-to-r from-blue-600/30 to-cyan-500/30 text-white shadow-lg border border-blue-500/30'
-                  : 'text-blue-100 hover:bg-white/10 hover:text-white'
-              }
-            `}
-          >
-            {/* Active indicator */}
-            {isActive(item.path) && (
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-400 rounded-r"></div>
-            )}
-
-            <span 
-              className={`text-xl transition-all duration-300 group-hover:scale-110 ${
-                isActive(item.path) ? 'text-cyan-300' : 'text-blue-300 group-hover:text-cyan-300'
-              }`}
-            >
-              {item.icon}
-            </span>
-            <span className={`font-medium transition-colors ${
-              isActive(item.path) ? 'text-white' : 'text-blue-100'
-            }`}>
-              {item.label}
-            </span>
-          </Link>
-        ))}
-      </nav>
-
-      {/* Quick Stats */}
-      
-
-      {/* Footer */}
-      <div className="relative p-4 border-t border-blue-700/50">
-        <p className="text-xs text-blue-300 text-center">
-          
-        </p>
-        <p className="text-xs text-blue-400 text-center mt-1">
-          Operator Panel
-        </p>
+      <div style={{ padding: '12px 12px 20px' }}>
+        <button
+          onClick={handleLogout}
+          style={{
+            display: 'flex',
+            width: '100%',
+            alignItems: 'center',
+            gap: 12,
+            padding: '11px 14px',
+            borderRadius: 8,
+            background: 'transparent',
+            border: 0,
+            cursor: 'pointer',
+            color: 'var(--vxn-fg-3)',
+            font: '400 14px var(--font-display)',
+          }}
+        >
+          <VxnIcon name="log-out" size={18} style={{ opacity: 0.75 }} />
+          Đăng xuất
+        </button>
       </div>
-    </div>
+    </aside>
   );
 };
 

@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const smsService = require('./sms.service');
+const Booking = require('../models/Booking');
 const logger = require('../utils/logger');
 
 /**
@@ -10,13 +11,22 @@ class NotificationService {
   constructor() {
     // Email transporter setup with error handling
     try {
+      const emailService = process.env.EMAIL_SERVICE;
+      const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+      const smtpPassword = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || process.env.EMAIL_PASSWORD;
+      const smtpHost = process.env.SMTP_HOST ||
+        (emailService === 'gmail' || process.env.EMAIL_USER ? 'smtp.gmail.com' : 'localhost');
+
       this.emailTransporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        host: smtpHost,
         port: process.env.SMTP_PORT || 587,
         secure: false, // true for 465, false for other ports
         auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+          user: smtpUser,
+          pass: smtpPassword,
+        },
+        tls: {
+          rejectUnauthorized: false,
         },
       });
     } catch (error) {
@@ -27,8 +37,13 @@ class NotificationService {
     // SMS service (singleton instance)
     this.smsService = smsService;
 
-    this.fromEmail = process.env.FROM_EMAIL || 'noreply@vexenhanh.com';
-    this.fromName = process.env.FROM_NAME || 'Vé xe nhanh';
+    this.fromEmail =
+      process.env.FROM_EMAIL ||
+      process.env.EMAIL_FROM ||
+      process.env.EMAIL_USER ||
+      process.env.SMTP_USER ||
+      'noreply@vexenhanh.com';
+    this.fromName = process.env.FROM_NAME || process.env.EMAIL_FROM_NAME || 'Vé xe nhanh';
     this.emailEnabled = process.env.EMAIL_ENABLED !== 'false'; // Default enabled
     this.smsEnabled = process.env.SMS_ENABLED === 'true';
   }
@@ -144,42 +159,41 @@ class NotificationService {
         newStatus
       );
 
-      // Send notifications to all passengers
-      const results = {
-        total: bookings.length,
-        emailSent: 0,
-        emailFailed: 0,
-        smsSent: 0,
-        smsFailed: 0,
-      };
-
-      for (const booking of bookings) {
+      // Send notifications to all passengers in parallel (collect results)
+      const sendPromises = bookings.map(async (booking) => {
         const email = booking.contactInfo?.email;
         const phone = booking.contactInfo?.phone;
 
-        // Send email
+        let emailSent = 0;
+        let emailFailed = 0;
+        let smsSent = 0;
+        let smsFailed = 0;
+
         if (email) {
           const emailResult = await this.sendEmail(email, emailSubject, emailHtml);
-          if (emailResult.success && !emailResult.skipped) {
-            results.emailSent++;
-          } else if (!emailResult.skipped) {
-            results.emailFailed++;
-          }
+          if (emailResult.success && !emailResult.skipped) emailSent = 1;
+          else if (!emailResult.skipped) emailFailed = 1;
         }
 
-        // Send SMS
         if (phone) {
           const smsResult = await this.sendSMS(phone, smsMessage);
-          if (smsResult.success && !smsResult.skipped) {
-            results.smsSent++;
-          } else if (!smsResult.skipped) {
-            results.smsFailed++;
-          }
+          if (smsResult.success && !smsResult.skipped) smsSent = 1;
+          else if (!smsResult.skipped) smsFailed = 1;
         }
 
-        // Small delay to avoid rate limiting
-        await this.delay(100);
-      }
+        return { emailSent, emailFailed, smsSent, smsFailed };
+      });
+
+      const settled = await Promise.all(sendPromises);
+
+      const results = settled.reduce((acc, r) => {
+        acc.total += 1;
+        acc.emailSent += r.emailSent;
+        acc.emailFailed += r.emailFailed;
+        acc.smsSent += r.smsSent;
+        acc.smsFailed += r.smsFailed;
+        return acc;
+      }, { total: 0, emailSent: 0, emailFailed: 0, smsSent: 0, smsFailed: 0 });
 
       logger.info('Chuyến trạng thái change thông báo đã gửi:', results);
       return {

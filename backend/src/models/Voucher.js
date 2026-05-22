@@ -199,10 +199,10 @@ VoucherSchema.methods.calculateDiscount = function (bookingAmount) {
       return Math.min(discount, this.maxDiscountAmount);
     }
     return discount;
-  } else {
-    // Fixed amount
-    return Math.min(this.discountValue, bookingAmount);
   }
+
+  // Fixed amount
+  return Math.min(this.discountValue, bookingAmount);
 };
 
 /**
@@ -251,9 +251,7 @@ VoucherSchema.methods.canBeUsed = function (options = {}) {
   // Check applicable routes
   if (this.applicableRoutes.length > 0 && routeId) {
     const routeIdStr = routeId.toString();
-    const isRouteApplicable = this.applicableRoutes.some(
-      (r) => r.toString() === routeIdStr
-    );
+    const isRouteApplicable = this.applicableRoutes.some((r) => r.toString() === routeIdStr);
     if (!isRouteApplicable) {
       return { valid: false, reason: 'Voucher không áp dụng cho tuyến đường này' };
     }

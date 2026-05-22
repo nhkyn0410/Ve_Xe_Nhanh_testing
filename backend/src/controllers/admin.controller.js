@@ -1,13 +1,157 @@
 const OperatorService = require('../services/operator.service');
+const AuthService = require('../services/auth.service');
 const User = require('../models/User');
+const BusOperator = require('../models/BusOperator');
 const Booking = require('../models/Booking');
 const logger = require('../utils/logger');
+
+const findAnyAdmin = () => User.findOne({ role: 'admin' }).select('_id email fullName');
+
+const sanitizeUserResponse = (user) => {
+  const userResponse = user.toObject();
+  delete userResponse.password;
+  return userResponse;
+};
+
+const ensureUserIdentityAvailable = async (email, phone) => {
+  const normalizedEmail = email.toLowerCase();
+
+  const [existingEmail, existingPhone] = await Promise.all([
+    User.findOne({ email: normalizedEmail }),
+    User.findOne({ phone }),
+  ]);
+
+  if (existingEmail) {
+    throw new Error('Email đã được sử dụng');
+  }
+
+  if (existingPhone) {
+    throw new Error('Số điện thoại đã được sử dụng');
+  }
+
+  return normalizedEmail;
+};
+
+const createAdminUser = async ({
+  email,
+  phone,
+  password,
+  fullName,
+}) => User.create({
+  email,
+  phone,
+  password,
+  fullName,
+  role: 'admin',
+  isEmailVerified: true,
+  isPhoneVerified: true,
+});
 
 /**
  * Admin Controller
  * Xử lý các HTTP requests cho admin
  * Includes operator management and user management (UC-22)
  */
+
+/**
+ * @route   POST /api/v1/admin/login
+ * @desc    Đăng nhập admin
+ * @access  Public
+ */
+/**
+ * @route   POST /api/v1/admin/bootstrap
+ * @desc    Bootstrap first admin account
+ * @access  Public
+ */
+exports.bootstrapFirstAdmin = async (req, res) => {
+  try {
+    const existingAdmin = await findAnyAdmin();
+
+    if (existingAdmin) {
+      return res.status(409).json({
+        status: 'error',
+        message: 'Hệ thống đã có tài khoản admin. Bootstrap đã bị khóa.',
+      });
+    }
+
+    const requiredBootstrapSecret = process.env.ADMIN_BOOTSTRAP_SECRET;
+    const {
+      bootstrapSecret,
+      email,
+      phone,
+      password,
+      fullName,
+    } = req.body;
+
+    if (requiredBootstrapSecret && bootstrapSecret !== requiredBootstrapSecret) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Bootstrap secret không hợp lệ',
+      });
+    }
+
+    const normalizedEmail = await ensureUserIdentityAvailable(email, phone);
+    const admin = await createAdminUser({
+      email: normalizedEmail,
+      phone,
+      password,
+      fullName,
+    });
+
+    return res.status(201).json({
+      status: 'success',
+      message: 'Khởi tạo admin đầu tiên thành công',
+      data: {
+        user: sanitizeUserResponse(admin),
+      },
+    });
+  } catch (error) {
+    logger.error('Lỗi bootstrap admin đầu tiên:', error);
+    return res.status(400).json({
+      status: 'error',
+      message: error.message || 'Khởi tạo admin đầu tiên thất bại',
+    });
+  }
+};
+
+/**
+ * @route   POST /api/v1/admin/login
+ * @desc    Admin login
+ * @access  Public
+ */
+exports.login = async (req, res) => {
+  try {
+    const { identifier, password, rememberMe } = req.body;
+
+    if (!identifier || !password) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Vui lòng cung cấp email/số điện thoại và mật khẩu',
+      });
+    }
+
+    const result = await AuthService.login(identifier, password, rememberMe || false, 'admin');
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Đăng nhập admin thành công',
+      data: {
+        user: result.user,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      },
+    });
+  } catch (error) {
+    logger.error('Lỗi đăng nhập admin:', error);
+
+    const isForbidden = error.message && error.message.includes('quyền truy cập khu vực quản trị');
+
+    return res.status(isForbidden ? 403 : 401).json({
+      status: 'error',
+      message: error.message || 'Đăng nhập admin thất bại',
+    });
+  }
+};
 
 /**
  * @route   GET /api/v1/admin/operators
@@ -212,10 +356,121 @@ exports.resumeOperator = async (req, res, next) => {
 };
 
 /**
+ * @route   GET /api/v1/admin/operators/statistics
+ * @desc    Lấy thống kê tổng quan nhà xe (toàn hệ thống)
+ * @access  Private (Admin)
+ */
+exports.getOperatorStatistics = async (req, res) => {
+  try {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const [
+      total,
+      active,
+      pending,
+      rejected,
+      suspended,
+      inactive,
+      newThisMonth,
+      aggregates,
+    ] = await Promise.all([
+      BusOperator.countDocuments(),
+      BusOperator.countDocuments({ verificationStatus: 'approved', isSuspended: false }),
+      BusOperator.countDocuments({ verificationStatus: 'pending' }),
+      BusOperator.countDocuments({ verificationStatus: 'rejected' }),
+      BusOperator.countDocuments({ isSuspended: true }),
+      BusOperator.countDocuments({ isActive: false }),
+      BusOperator.countDocuments({ createdAt: { $gte: startOfMonth } }),
+      BusOperator.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: '$totalRevenue' },
+            totalTrips: { $sum: '$totalTrips' },
+            totalReviews: { $sum: '$totalReviews' },
+            avgRating: {
+              $avg: {
+                $cond: [{ $gt: ['$averageRating', 0] }, '$averageRating', null],
+              },
+            },
+          },
+        },
+      ]),
+    ]);
+
+    const agg = aggregates[0] || {};
+
+    res.json({
+      success: true,
+      data: {
+        total,
+        active,
+        pending,
+        rejected,
+        suspended,
+        inactive,
+        newThisMonth,
+        totalRevenue: agg.totalRevenue || 0,
+        totalTrips: agg.totalTrips || 0,
+        totalReviews: agg.totalReviews || 0,
+        avgRating: agg.avgRating ? Number(agg.avgRating.toFixed(2)) : 0,
+      },
+    });
+  } catch (error) {
+    logger.error('Lỗi lấy thống kê nhà xe:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Không thể tải thống kê nhà xe',
+      error: error.message,
+    });
+  }
+};
+
+/**
  * ========================
  * USER MANAGEMENT (UC-22)
  * ========================
  */
+
+/**
+ * @route   POST /api/v1/admin/users
+ * @desc    Create a new admin account
+ * @access  Private (Admin)
+ */
+exports.createAdminAccount = async (req, res) => {
+  try {
+    const {
+      email,
+      phone,
+      password,
+      fullName,
+    } = req.body;
+
+    const normalizedEmail = await ensureUserIdentityAvailable(email, phone);
+    const admin = await createAdminUser({
+      email: normalizedEmail,
+      phone,
+      password,
+      fullName,
+    });
+
+    return res.status(201).json({
+      status: 'success',
+      message: 'Tạo tài khoản admin thành công',
+      data: {
+        user: sanitizeUserResponse(admin),
+      },
+    });
+  } catch (error) {
+    logger.error('Lỗi tạo tài khoản admin:', error);
+    return res.status(400).json({
+      status: 'error',
+      message: error.message || 'Tạo tài khoản admin thất bại',
+    });
+  }
+};
 
 /**
  * @route   GET /api/admin/users
@@ -230,6 +485,7 @@ exports.getUsers = async (req, res) => {
       role,
       isBlocked,
       isActive,
+      loyaltyTier,
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc',
@@ -241,6 +497,11 @@ exports.getUsers = async (req, res) => {
     // Filter by role
     if (role) {
       query.role = role;
+    }
+
+    // Filter by loyalty tier (customer membership)
+    if (loyaltyTier) {
+      query.loyaltyTier = loyaltyTier;
     }
 
     // Filter by blocked status
@@ -755,11 +1016,19 @@ exports.getSystemOverview = async (req, res) => {
     const start = startDate ? new Date(startDate) : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     // User Statistics
+    // Tổng người dùng = mọi role (gồm cả admin trong cùng collection User).
     const totalUsers = await User.countDocuments();
+    // Các KPI "Khách hàng" chỉ tính role 'customer' — admin nằm chung
+    // collection User nên không được lẫn vào số khách hàng.
     const newUsers = await User.countDocuments({
+      role: 'customer',
       createdAt: { $gte: start, $lte: end },
     });
-    const activeUsers = await User.countDocuments({ isActive: true, isBlocked: false });
+    const activeUsers = await User.countDocuments({
+      role: 'customer',
+      isActive: true,
+      isBlocked: false,
+    });
 
     // Operator Statistics
     const totalOperators = await BusOperator.countDocuments();
@@ -971,6 +1240,7 @@ exports.getSystemOverview = async (req, res) => {
     });
 
     const previousUsers = await User.countDocuments({
+      role: 'customer',
       createdAt: { $gte: previousStart, $lt: previousEnd },
     });
 

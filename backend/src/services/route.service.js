@@ -1,5 +1,6 @@
 const Route = require('../models/Route');
 const BusOperator = require('../models/BusOperator');
+const Trip = require('../models/Trip');
 
 /**
  * Route Service
@@ -87,8 +88,50 @@ class RouteService {
     // Get total count
     const total = await Route.countDocuments(query);
 
+    // Enrich each route with derived operational metrics from real trips:
+    //  - tripsPerDay: average number of (non-cancelled) trips scheduled per active day
+    //  - priceFrom:   lowest ticket fare offered on the route
+    const routeIds = routes.map((r) => r._id);
+    let tripMap = new Map();
+
+    if (routeIds.length > 0) {
+      const tripAgg = await Trip.aggregate([
+        { $match: { routeId: { $in: routeIds }, status: { $ne: 'cancelled' } } },
+        {
+          $group: {
+            _id: {
+              routeId: '$routeId',
+              day: { $dateToString: { format: '%Y-%m-%d', date: '$departureTime' } },
+            },
+            dayCount: { $sum: 1 },
+            minPrice: { $min: { $ifNull: ['$finalPrice', '$basePrice'] } },
+          },
+        },
+        {
+          $group: {
+            _id: '$_id.routeId',
+            totalTrips: { $sum: '$dayCount' },
+            distinctDays: { $sum: 1 },
+            minPrice: { $min: '$minPrice' },
+          },
+        },
+      ]);
+
+      tripMap = new Map(tripAgg.map((t) => [String(t._id), t]));
+    }
+
+    const enrichedRoutes = routes.map((route) => {
+      const obj = typeof route.toObject === 'function' ? route.toObject() : route;
+      const agg = tripMap.get(String(route._id));
+
+      obj.tripsPerDay = agg ? Math.round(agg.totalTrips / Math.max(agg.distinctDays, 1)) : 0;
+      obj.priceFrom = agg && agg.minPrice != null ? agg.minPrice : 0;
+
+      return obj;
+    });
+
     return {
-      routes,
+      routes: enrichedRoutes,
       pagination: {
         total,
         page: Number(page),
@@ -99,13 +142,141 @@ class RouteService {
   }
 
   /**
+   * Lấy danh sách điểm dừng tổng hợp của operator
+   * Gom toàn bộ bến đầu/cuối, điểm đón, điểm trả và điểm dừng nghỉ từ mọi tuyến
+   * thành một danh mục điểm dừng duy nhất kèm số tuyến & lượt/ngày thực tế.
+   * @param {String} operatorId - Operator ID
+   * @returns {Array} Stops
+   */
+  static async getStops(operatorId) {
+    const routes = await Route.find({ operatorId });
+
+    // Average non-cancelled trips/day per route (real data)
+    const routeIds = routes.map((r) => r._id);
+    const tripMap = new Map();
+
+    if (routeIds.length > 0) {
+      const tripAgg = await Trip.aggregate([
+        { $match: { routeId: { $in: routeIds }, status: { $ne: 'cancelled' } } },
+        {
+          $group: {
+            _id: {
+              routeId: '$routeId',
+              day: { $dateToString: { format: '%Y-%m-%d', date: '$departureTime' } },
+            },
+            dayCount: { $sum: 1 },
+          },
+        },
+        {
+          $group: {
+            _id: '$_id.routeId',
+            totalTrips: { $sum: '$dayCount' },
+            distinctDays: { $sum: 1 },
+          },
+        },
+      ]);
+
+      tripAgg.forEach((t) => {
+        tripMap.set(String(t._id), Math.round(t.totalTrips / Math.max(t.distinctDays, 1)));
+      });
+    }
+
+    const map = new Map();
+
+    const addPoint = (point, route) => {
+      const name = (point.name || '').trim();
+      if (!name) return;
+
+      const city = (point.city || '').trim();
+      const key = `${point.type}|${name.toLowerCase()}|${city.toLowerCase()}`;
+
+      let s = map.get(key);
+      if (!s) {
+        s = {
+          type: point.type,
+          name,
+          address: point.address || '',
+          city,
+          routeIds: new Set(),
+          dailyTrips: 0,
+          anyActive: false,
+        };
+        map.set(key, s);
+      }
+
+      if (!s.address && point.address) s.address = point.address;
+      s.routeIds.add(String(route._id));
+      s.dailyTrips += tripMap.get(String(route._id)) || 0;
+      if (route.isActive) s.anyActive = true;
+    };
+
+    routes.forEach((r) => {
+      if (r.origin && r.origin.station) {
+        addPoint(
+          {
+            type: 'bus_station',
+            name: r.origin.station,
+            address: r.origin.address,
+            city: r.origin.city,
+          },
+          r
+        );
+      }
+      if (r.destination && r.destination.station) {
+        addPoint(
+          {
+            type: 'bus_station',
+            name: r.destination.station,
+            address: r.destination.address,
+            city: r.destination.city,
+          },
+          r
+        );
+      }
+      (r.pickupPoints || []).forEach((p) =>
+        addPoint(
+          { type: 'pickup', name: p.name, address: p.address, city: r.origin && r.origin.city },
+          r
+        )
+      );
+      (r.dropoffPoints || []).forEach((p) =>
+        addPoint(
+          {
+            type: 'pickup',
+            name: p.name,
+            address: p.address,
+            city: r.destination && r.destination.city,
+          },
+          r
+        )
+      );
+      (r.stops || []).forEach((p) =>
+        addPoint({ type: 'rest_stop', name: p.name, address: p.address, city: '' }, r)
+      );
+    });
+
+    return [...map.values()]
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+      .map((s, i) => ({
+        code: `ST-${String(i + 1).padStart(3, '0')}`,
+        name: s.name,
+        address: s.address,
+        city: s.city,
+        type: s.type,
+        routes: s.routeIds.size,
+        dailyTrips: s.dailyTrips,
+        status: s.anyActive ? 'active' : 'inactive',
+      }));
+  }
+
+  /**
    * Lấy thông tin route theo ID
    * @param {String} routeId - Route ID
    * @param {String} operatorId - Operator ID (for authorization)
    * @returns {Object} Route
    */
   static async getById(routeId, operatorId = null) {
-    const route = await Route.findById(routeId).populate('operatorId', 'companyName email phone');
+    const route = await Route.findById(routeId).populate('operatorId', 'operatorName companyName email phone');
 
     if (!route) {
       throw new Error('Tuyến đường không tồn tại');
@@ -248,7 +419,7 @@ class RouteService {
 
     // Execute query
     const routes = await Route.find(query)
-      .populate('operatorId', 'companyName averageRating logo')
+      .populate('operatorId', 'operatorName companyName averageRating logo')
       .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
       .skip(skip)
       .limit(limit);

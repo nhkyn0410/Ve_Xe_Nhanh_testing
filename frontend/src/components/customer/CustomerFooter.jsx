@@ -1,231 +1,159 @@
-import { Layout, Row, Col, Space, Typography } from 'antd';
 import {
-  PhoneOutlined,
-  MailOutlined,
+  CustomerServiceOutlined,
+  DashboardOutlined,
   EnvironmentOutlined,
   FacebookOutlined,
-  InstagramOutlined,
-  YoutubeOutlined,
-  LoginOutlined,
-  UserAddOutlined,
-  CarOutlined,
-  DashboardOutlined,
-  SettingOutlined,
-  HomeOutlined,
-  SearchOutlined,
   FileTextOutlined,
-  TrophyOutlined,
-  CustomerServiceOutlined,
+  HomeOutlined,
+  LoginOutlined,
+  MailOutlined,
+  PhoneOutlined,
   QuestionCircleOutlined,
-  DollarOutlined,
   SafetyOutlined,
-  SecurityScanOutlined,
+  SearchOutlined,
+  TrophyOutlined,
+  UserAddOutlined,
 } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
+import footerLogo from '../../assets/brand/logo-icon_background_white.svg';
 
-// X (Twitter) icon component
-const XIcon = () => (
-  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
-    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-  </svg>
+const serviceLinks = [
+  { href: '/', text: 'Trang chủ', icon: HomeOutlined },
+  { href: '/trips', text: 'Tìm chuyến xe', icon: SearchOutlined },
+  { href: '/tra-cuu-ve', text: 'Tra cứu vé', icon: FileTextOutlined },
+  { href: '/loyalty', text: 'VXN Plus', icon: TrophyOutlined },
+];
+
+const businessLinks = [
+  { href: '/operator/login', text: 'Đăng nhập nhà xe', icon: LoginOutlined },
+  { href: '/operator/register', text: 'Đăng ký nhà xe', icon: UserAddOutlined },
+  { href: '/trip-manager/login', text: 'Nhân viên chuyến', icon: FileTextOutlined },
+  { href: '/admin/login', text: 'Quản trị hệ thống', icon: DashboardOutlined },
+];
+
+const supportLinks = [
+  { href: '/complaints', text: 'Gửi khiếu nại', icon: CustomerServiceOutlined },
+  { href: '/faq', text: 'Câu hỏi thường gặp', icon: QuestionCircleOutlined },
+  { href: '/tickets/cancel', text: 'Đổi và hủy vé', icon: SafetyOutlined },
+];
+
+const socialLinks = [
+  { key: 'facebook', icon: FacebookOutlined },
+  { key: 'email', icon: MailOutlined },
+  { key: 'phone', icon: PhoneOutlined },
+];
+
+const FooterLink = ({ href, icon: Icon, text }) => (
+  <Link
+    to={href}
+    className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium text-slate-600 transition hover:bg-white hover:text-vxn-teal-700"
+  >
+    <span className="grid h-8 w-8 place-items-center rounded-lg bg-white text-vxn-saffron-600 shadow-sm ring-1 ring-[#D7E7EE] transition group-hover:text-vxn-teal-700">
+      <Icon />
+    </span>
+    <span>{text}</span>
+  </Link>
 );
 
-const { Footer } = Layout;
-const { Title, Text, Link } = Typography;
+const CustomerFooter = () => (
+  <footer className="mt-auto border-t border-[#D7E7EE] bg-[#EAF6FA] text-slate-800">
+    <div className="mx-auto max-w-[1440px] px-4 py-14 sm:px-6 lg:px-8 xl:px-12">
+      <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1.2fr]">
+        <section>
+          <img src={footerLogo} alt="Vé Xe Nhanh" className="mb-6 h-24" />
+          <p className="max-w-sm text-[17px] leading-7 text-slate-600">
+            Nền tảng đặt vé xe khách trực tuyến cho khách hàng, nhà xe và nhân viên vận hành chuyến.
+          </p>
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[14px] font-medium text-vxn-teal-800 shadow-sm ring-1 ring-[#D7E7EE]">
+            <span className="h-2 w-2 rounded-full bg-vxn-saffron-500" />
+            Vé điện tử QR · Thanh toán an toàn
+          </div>
+        </section>
 
-const CustomerFooter = () => {
-  return (
-    <Footer className="bg-gray-200 text-white mt-auto">
-      <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-16">
-        <Row gutter={[32, 48]}>
-          {/* Company Info */}
-          <Col xs={24} sm={12} lg={5}>
-            <div className="mb-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <span className="text-white text-xl">🚀</span>
-                </div>
-                <div>
-                  <Title level={4} className="text-white mb-0">
-                    Vé xe nhanh
-                  </Title>
-                  <Text className="text-slate-700 text-sm">
-                    Đặt vé thông minh
-                  </Text>
-                </div>
-              </div>
-              <Text className="text-slate-800 leading-relaxed">
-                Nền tảng đặt vé xe khách trực tuyến.<br />
-                Mang đến trải nghiệm đặt vé nhanh chóng, tiện lợi và an toàn nhất.
-              </Text>
+        <section>
+          <h2 className="mb-4 flex items-center gap-2 text-[14px] font-semibold uppercase tracking-wide text-vxn-ink">
+            <span className="h-5 w-1 rounded-full bg-vxn-saffron-500" />
+            Dịch vụ
+          </h2>
+          <div className="space-y-1">
+            {serviceLinks.map((item) => (
+              <FooterLink key={item.href} {...item} />
+            ))}
+          </div>
+        </section>
 
+        <section>
+          <h2 className="mb-4 flex items-center gap-2 text-[14px] font-semibold uppercase tracking-wide text-vxn-ink">
+            <span className="h-5 w-1 rounded-full bg-vxn-saffron-500" />
+            Đối tác
+          </h2>
+          <div className="space-y-1">
+            {businessLinks.map((item) => (
+              <FooterLink key={item.href} {...item} />
+            ))}
+          </div>
+        </section>
 
+        <section>
+          <h2 className="mb-4 flex items-center gap-2 text-[14px] font-semibold uppercase tracking-wide text-vxn-ink">
+            <span className="h-5 w-1 rounded-full bg-vxn-saffron-500" />
+            Hỗ trợ
+          </h2>
+          <div className="space-y-1">
+            {supportLinks.map((item) => (
+              <FooterLink key={item.href} {...item} />
+            ))}
+          </div>
+        </section>
 
-            </div>
-          </Col>
-
-          {/* Quick Links */}
-          <Col xs={24} sm={12} lg={4}>
-            <Title level={5} className="text-white mb-6 flex items-center gap-2">
-              <span className="w-1 h-6 bg-red-500 rounded-full"></span>
-              Dịch vụ
-            </Title>
-            <div className="space-y-4">
-              {[
-                { href: '/', text: 'Trang chủ', icon: HomeOutlined, color: 'text-blue-400' },
-                { href: '/trips', text: 'Tìm chuyến xe', icon: SearchOutlined, color: 'text-green-400' },
-                { href: '/tickets/lookup', text: 'Tra cứu vé', icon: FileTextOutlined, color: 'text-yellow-400' },
-                { href: '/loyalty', text: 'Loyalty Program', icon: TrophyOutlined, color: 'text-purple-400' }
-              ].map((item, index) => (
-                <div key={index} className="group">
-                  <Link
-                    href={item.href}
-                    className="text-slate-300 hover:text-white transition-all duration-300 flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-gray-700/50 border border-transparent hover:border-gray-600"
-                  >
-                    <div className="w-8 h-8 bg-gray-700 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <item.icon className={`${item.color} text-sm`} />
-                    </div>
-                    <span className="group-hover:translate-x-1 transition-transform text-sm font-medium">
-                      {item.text}
-                    </span>
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </Col>
-
-          {/* Business Links */}
-          <Col xs={24} sm={12} lg={4}>
-            <Title level={5} className="text-white mb-6 flex items-center gap-2">
-              <span className="w-1 h-6 bg-orange-500 rounded-full"></span>
-              Liên kết nhanh
-            </Title>
-            <div className="space-y-4">
-              {[
-                { href: '/operator/login', text: 'Đăng nhập nhà xe', icon: LoginOutlined, color: 'text-orange-400' },
-                { href: '/operator/register', text: 'Đăng ký nhà xe', icon: UserAddOutlined, color: 'text-blue-400' },
-                { href: '/admin/login', text: 'Quản trị viên', icon: DashboardOutlined, color: 'text-purple-400' },
-                { href: '/trip-manager/login', text: 'Đăng nhập nhân viên', icon: CarOutlined, color: 'text-green-400' },
-                // { href: '/operator/settings', text: 'Cài đặt tài khoản', icon: SettingOutlined, color: 'text-cyan-400' }
-              ].map((item, index) => (
-                <div key={index} className="group">
-                  <Link
-                    href={item.href}
-                    className="text-slate-300 hover:text-white transition-all duration-300 flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-gray-700/50 border border-transparent hover:border-gray-600"
-                  >
-                    <div className={`w-8 h-8 bg-gray-700 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                      <item.icon className={`${item.color} text-sm`} />
-                    </div>
-                    <span className="group-hover:translate-x-1 transition-transform text-sm font-medium">
-                      {item.text}
-                    </span>
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </Col>
-
-          {/* Support */}
-          <Col xs={24} sm={12} lg={5}>
-            <Title level={5} className="text-white mb-6 flex items-center gap-2">
-              <span className="w-1 h-6 bg-red-500 rounded-full"></span>
-              Hỗ trợ khách hàng
-            </Title>
-            <div className="space-y-4">
-              {[
-                { href: '/complaints', text: 'Gửi khiếu nại', icon: CustomerServiceOutlined, color: 'text-red-400' },
-                { text: 'Câu hỏi thường gặp', icon: QuestionCircleOutlined, color: 'text-blue-400' },
-                { text: 'Chính sách hoàn tiền', icon: DollarOutlined, color: 'text-green-400' },
-                { text: 'Điều khoản sử dụng', icon: SafetyOutlined, color: 'text-orange-400' },
-                { text: 'Chính sách bảo mật', icon: SecurityScanOutlined, color: 'text-purple-400' }
-              ].map((item, index) => (
-                <div key={index} className="group">
-                  <Link
-                    href={item.href}
-                    className="text-slate-300 hover:text-white transition-all duration-300 flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-gray-700/50 border border-transparent hover:border-gray-600"
-                  >
-                    <div className="w-8 h-8 bg-gray-700 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <item.icon className={`${item.color} text-sm`} />
-                    </div>
-                    <span className="group-hover:translate-x-1 transition-transform text-sm font-medium">
-                      {item.text}
-                    </span>
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </Col>
-
-          {/* Contact Info */}
-          <Col xs={24} sm={12} lg={6}>
-            <Title level={5} className="text-white mb-6 flex items-center gap-2">
-              <span className="w-1 h-6 bg-red-500 rounded-full"></span>
-              Liên hệ với chúng tôi
-            </Title>
-            <div className="space-y-4 w-84">
-              <div className="flex items-center gap-4 p-3 bg-gray-400/50 rounded-lg border border-gray-600">
-                <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
-                  <PhoneOutlined className="text-white" />
-                </div>
-                <div>
-                  <Text className="text-slate-800 text-xs block">Hotline 24/7</Text>
-                  <Text className="text-black font-medium">1900 0000</Text>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 p-3 bg-gray-400/50 rounded-lg border border-gray-600">
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <MailOutlined className="text-white" />
-                </div>
-                <div>
-                  <Text className="text-slate-800 text-xs block">Email hỗ trợ</Text>
-                  <Text className="text-black font-medium">vexenhanh@gmail.com</Text>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 p-3 bg-gray-400/50 rounded-lg border border-gray-600">
-                <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-                  <EnvironmentOutlined className="text-white" />
-                </div>
-                <div>
-                  <Text className="text-slate-800 text-xs block">Địa chỉ</Text>
-                  <Text className="text-black font-medium">TP. HCM, Việt Nam</Text>
-                </div>
-              </div>
-
-              {/* Social Media */}
-              <div className="mt-6">
-                <Text className="text-slate-400 text-sm font-medium block mb-3">
-                  Theo dõi chúng tôi
-                </Text>
-                <div className="flex gap-3">
-                  {[
-                    { icon: FacebookOutlined, color: 'hover:bg-blue-600', bg: 'bg-gray-700' },
-                    { icon: XIcon, color: 'hover:bg-gray-500', bg: 'bg-gray-700', isCustom: true },
-                    { icon: InstagramOutlined, color: 'hover:bg-pink-600', bg: 'bg-gray-700' },
-                    { icon: YoutubeOutlined, color: 'hover:bg-red-600', bg: 'bg-gray-700' }
-                  ].map((social, index) => (
-                    <div
-                      key={index}
-                      className={`w-10 h-10 ${social.bg} ${social.color} rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-110 border border-gray-600`}
-                    >
-                      {social.isCustom ? (
-                        <social.icon />
-                      ) : (
-                        <social.icon className="text-white" />
-                      )}
-                    </div>
-                  ))}
-                </div>
+        <section>
+          <h2 className="mb-4 flex items-center gap-2 text-[14px] font-semibold uppercase tracking-wide text-vxn-ink">
+            <span className="h-5 w-1 rounded-full bg-vxn-saffron-500" />
+            Liên hệ
+          </h2>
+          <div className="space-y-3 text-[14px] text-slate-600">
+            <div className="flex gap-3 rounded-lg border border-[#D7E7EE] bg-white p-3 shadow-sm">
+              <PhoneOutlined className="mt-1 text-vxn-saffron-500" />
+              <div>
+                <div className="text-slate-500">Hotline</div>
+                <div className="font-semibold text-vxn-ink">1900 6067</div>
               </div>
             </div>
-          </Col>
-        </Row>
+            <div className="flex gap-3 rounded-lg border border-[#D7E7EE] bg-white p-3 shadow-sm">
+              <MailOutlined className="mt-1 text-vxn-saffron-500" />
+              <div>
+                <div className="text-slate-500">Email hỗ trợ</div>
+                <div className="font-semibold text-vxn-ink">support@vexenhanh.vn</div>
+              </div>
+            </div>
+            <div className="flex gap-3 rounded-lg border border-[#D7E7EE] bg-white p-3 shadow-sm">
+              <EnvironmentOutlined className="mt-1 text-vxn-saffron-500" />
+              <div>
+                <div className="text-slate-500">Văn phòng</div>
+                <div className="font-semibold text-vxn-ink">TP. Hồ Chí Minh, Việt Nam</div>
+              </div>
+            </div>
+          </div>
 
-        {/* Bottom Bar */}
-
+          <div className="mt-5 flex gap-3">
+            {socialLinks.map(({ key, icon: Icon }) => (
+              <span
+                key={key}
+                className="grid h-10 w-10 cursor-pointer place-items-center rounded-lg border border-[#D7E7EE] bg-white text-vxn-teal-800 shadow-sm transition hover:border-vxn-teal-700 hover:bg-vxn-teal-700 hover:text-white"
+              >
+                <Icon />
+              </span>
+            ))}
+          </div>
+        </section>
       </div>
-    </Footer>
-  );
-};
+
+      <div className="mt-10 flex flex-col gap-3 border-t border-[#D7E7EE] pt-6 text-[13px] text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <span>© 2026 Vé Xe Nhanh. All rights reserved.</span>
+        <span>Điều khoản sử dụng · Chính sách bảo mật · Chính sách hoàn tiền</span>
+      </div>
+    </div>
+  </footer>
+);
 
 export default CustomerFooter;

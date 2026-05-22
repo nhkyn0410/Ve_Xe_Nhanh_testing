@@ -1,12 +1,58 @@
 const Employee = require('../models/Employee');
 const BusOperator = require('../models/BusOperator');
-const logger = require('../utils/logger');
+const Trip = require('../models/Trip');
 
 /**
  * Employee Service
  * Business logic cho quản lý nhân viên
  */
 class EmployeeService {
+  static async ensureUniqueContact(operatorId, employeeData, excludeEmployeeId = null) {
+    const or = [];
+
+    if (employeeData.phone) {
+      or.push({ phone: String(employeeData.phone).trim() });
+    }
+
+    if (employeeData.email && String(employeeData.email).trim()) {
+      or.push({ email: String(employeeData.email).trim().toLowerCase() });
+    }
+
+    if (or.length === 0) return;
+
+    const query = { operatorId, $or: or };
+    if (excludeEmployeeId) {
+      query._id = { $ne: excludeEmployeeId };
+    }
+
+    const existing = await Employee.findOne(query).select('phone email');
+    if (!existing) return;
+
+    if (employeeData.phone && existing.phone === String(employeeData.phone).trim()) {
+      throw new Error('Số điện thoại nhân viên đã tồn tại');
+    }
+
+    throw new Error('Email nhân viên đã tồn tại');
+  }
+
+  static handleDuplicateKey(error) {
+    if (error?.code !== 11000) throw error;
+
+    if (error.keyPattern?.phone || error.keyValue?.phone) {
+      throw new Error('Số điện thoại nhân viên đã tồn tại');
+    }
+
+    if (error.keyPattern?.email || error.keyValue?.email) {
+      throw new Error('Email nhân viên đã tồn tại');
+    }
+
+    if (error.keyPattern?.employeeCode || error.keyValue?.employeeCode) {
+      throw new Error('Mã nhân viên đã tồn tại');
+    }
+
+    throw new Error('Thông tin nhân viên đã tồn tại');
+  }
+
   /**
    * Tạo nhân viên mới
    * @param {ObjectId} operatorId - ID của nhà xe
@@ -48,14 +94,21 @@ class EmployeeService {
       throw new Error('Mã nhân viên đã tồn tại');
     }
 
+    await this.ensureUniqueContact(operatorId, employeeData);
+
     // Create employee
-    const employee = await Employee.create({
-      operatorId,
-      ...employeeData,
-    });
+    let employee;
+    try {
+      employee = await Employee.create({
+        operatorId,
+        ...employeeData,
+      });
+    } catch (error) {
+      this.handleDuplicateKey(error);
+    }
 
     // Return without password
-    return await Employee.findById(employee._id).select('-password');
+    return Employee.findById(employee._id).select('-password');
   }
 
   /**
@@ -182,12 +235,18 @@ class EmployeeService {
       }
     }
 
+    await this.ensureUniqueContact(operatorId, updateData, employeeId);
+
     // Update fields
     Object.assign(employee, updateData);
 
-    await employee.save();
+    try {
+      await employee.save();
+    } catch (error) {
+      this.handleDuplicateKey(error);
+    }
 
-    return await Employee.findById(employee._id).select('-password');
+    return Employee.findById(employee._id).select('-password');
   }
 
   /**
@@ -245,7 +304,7 @@ class EmployeeService {
 
     await employee.save();
 
-    return await Employee.findById(employee._id).select('-password');
+    return Employee.findById(employee._id).select('-password');
   }
 
   /**
@@ -408,7 +467,7 @@ class EmployeeService {
       .populate('busId', 'busNumber plateNumber seatCapacity seatLayout')
       .populate('driverId', 'fullName phone employeeCode')
       .populate('tripManagerId', 'fullName phone employeeCode')
-      .populate('operatorId', 'companyName')
+      .populate('operatorId', 'operatorName companyName')
       .sort({ departureTime: -1 })
       .lean();
 
@@ -459,7 +518,7 @@ class EmployeeService {
     }
 
     // Return without password
-    return await Employee.findById(employee._id).select('-password');
+    return Employee.findById(employee._id).select('-password');
   }
 
   /**

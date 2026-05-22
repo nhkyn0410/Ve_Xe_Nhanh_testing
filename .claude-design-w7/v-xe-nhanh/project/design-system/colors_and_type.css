@@ -1,0 +1,353 @@
+/* ───────────────────────────────────────────────────────────────
+   Vé Xe Nhanh — Design Tokens
+   Bus ticket booking + fleet admin portal. Vietnamese-first.
+   ─────────────────────────────────────────────────────────────── */
+
+/* ── Brand font: Be Vietnam Pro (self-hosted) ───────────── */
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 100;
+  font-style: normal;
+  src: url("fonts/BeVietnamPro-Thin.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 100;
+  font-style: italic;
+  src: url("fonts/BeVietnamPro-ThinItalic.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 200;
+  font-style: normal;
+  src: url("fonts/BeVietnamPro-ExtraLight.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 200;
+  font-style: italic;
+  src: url("fonts/BeVietnamPro-ExtraLightItalic.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 300;
+  font-style: normal;
+  src: url("fonts/BeVietnamPro-Light.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 300;
+  font-style: italic;
+  src: url("fonts/BeVietnamPro-LightItalic.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 400;
+  font-style: normal;
+  src: url("fonts/BeVietnamPro-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 400;
+  font-style: italic;
+  src: url("fonts/BeVietnamPro-Italic.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 500;
+  font-style: normal;
+  src: url("fonts/BeVietnamPro-Medium.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 500;
+  font-style: italic;
+  src: url("fonts/BeVietnamPro-MediumItalic.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 600;
+  font-style: normal;
+  src: url("fonts/BeVietnamPro-SemiBold.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 600;
+  font-style: italic;
+  src: url("fonts/BeVietnamPro-SemiBoldItalic.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 700;
+  font-style: normal;
+  src: url("fonts/BeVietnamPro-Bold.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 700;
+  font-style: italic;
+  src: url("fonts/BeVietnamPro-BoldItalic.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 800;
+  font-style: normal;
+  src: url("fonts/BeVietnamPro-ExtraBold.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 800;
+  font-style: italic;
+  src: url("fonts/BeVietnamPro-ExtraBoldItalic.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 900;
+  font-style: normal;
+  src: url("fonts/BeVietnamPro-Black.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-weight: 900;
+  font-style: italic;
+  src: url("fonts/BeVietnamPro-BlackItalic.ttf") format("truetype");
+  font-display: swap;
+}
+
+:root {
+  /* ── Brand core ─────────────────────────────────────────── */
+  --vxn-teal-900: #00476b; /* rgb(0,71,133) text on light */
+  --vxn-teal-800: #005daa; /* rgb(0,93,170) secondary blue */
+  --vxn-teal-700: #006481; /* rgb(0,100,129) PRIMARY — logo bg, sidebar */
+  --vxn-teal-600: #226a92; /* rgb(34,106,146) language pill */
+  --vxn-teal-500: #2b7ead; /* rgb(43,126,173) CTA, theme toggle */
+
+  --vxn-saffron-700: #d18a1e;
+  --vxn-saffron-600: #e89b26; /* rgb(232,155,38) primary orange, Đăng ký */
+  --vxn-saffron-500: #f3b132; /* rgb(243,177,50) accent dot */
+
+  /* ── Neutrals (slate scale) ─────────────────────────────── */
+  --vxn-ink: #181c22; /* rgb(24,28,34)   headings */
+  --vxn-fg-1: #2d3138; /* rgb(45,49,56)   body */
+  --vxn-fg-2: #404753; /* rgb(64,71,83)   secondary text */
+  --vxn-fg-3: #475569; /* rgb(71,85,105)  muted */
+  --vxn-fg-4: #5e6165; /* rgb(94,97,101)  labels */
+  --vxn-fg-5: #64748b; /* rgb(100,116,139) placeholder / icon */
+  --vxn-fg-6: #74777b; /* rgb(116,119,123) tabular row text */
+  --vxn-fg-disabled: #aeafb3; /* rgb(174,175,179) placeholder, disabled */
+
+  --vxn-bg: #ffffff;
+  --vxn-bg-soft: #f9f9ff; /* rgb(249,249,255) page background */
+  --vxn-bg-mist: #f1f3fd; /* rgb(241,243,253) hover */
+  --vxn-bg-cloud: #ebeef7; /* rgb(235,238,247) chip bg */
+  --vxn-bg-stone: #e4e5e7; /* rgb(228,229,231) input fill */
+  --vxn-bg-fog: #e5e8f1; /* rgb(229,232,241) divider fill */
+
+  --vxn-border: #dfe2ec; /* rgb(223,226,236) hairline */
+  --vxn-border-strong: #cbd5e1; /* rgb(203,213,225) */
+  --vxn-border-muted: #c0c7d6; /* rgb(192,199,214) */
+
+  /* ── Semantic ───────────────────────────────────────────── */
+  --vxn-success-bg: #dbeafe; /* rgb(219,234,254) success chip */
+  --vxn-success-fg: #1d4ed8; /* rgb(29,78,216) */
+  --vxn-success-leaf: #00613d; /* rgb(0,97,61) eco-green */
+  --vxn-warning-bg: #fef3c7;
+  --vxn-warning-fg: #b45309;
+  --vxn-danger-bg: #fee2e2;
+  --vxn-danger-fg: #ef4444; /* rgb(239,68,68) notification dot */
+  --vxn-info-bg: #d4e3ff; /* rgb(212,227,255) soft info */
+
+  /* ── Type families ──────────────────────────────────────── */
+  --font-display:
+    "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif; /* all surfaces */
+  --font-ui:
+    "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif; /* all surfaces */
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* ── Type scale (px) ────────────────────────────────────── */
+  --fs-10: 10px;
+  --fs-12: 12px;
+  --fs-13: 13.6px;
+  --fs-14: 14px;
+  --fs-16: 16px;
+  --fs-18: 18px;
+  --fs-20: 20px;
+  --fs-22: 22px;
+  --fs-24: 24px;
+  --fs-30: 30px;
+  --fs-36: 36px;
+
+  /* ── Radii ──────────────────────────────────────────────── */
+  --r-xs: 2px; /* sharp admin buttons (Đăng nhập / Đăng ký) */
+  --r-sm: 4px; /* CTAs (Tìm chuyến) */
+  --r-md: 6px; /* sidebar pill icons */
+  --r-lg: 8px; /* cards, search container */
+  --r-xl: 10px; /* search bar */
+  --r-2xl: 12px; /* admin search input, chip icons */
+  --r-pill: 36px; /* sidebar "Giao diện" pill */
+  --r-full: 999px; /* status chips, avatar ring */
+
+  /* ── Spacing (4px grid) ─────────────────────────────────── */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+  --s-24: 96px;
+
+  /* ── Shadows ────────────────────────────────────────────── */
+  --shadow-1: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* admin top bar */
+  --shadow-2:
+    0 4px 6px -4px rgba(0, 100, 129, 0.2),
+    0 10px 15px -3px rgba(0, 100, 129, 0.2); /* teal CTA */
+  --shadow-card: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* hero search overlay */
+  --blur-glass: blur(12px);
+
+  /* ── Layout ─────────────────────────────────────────────── */
+  --sidebar-w: 280px;
+  --topbar-h: 64px;
+}
+
+/* ───────────────────────────────────────────────────────────
+   Semantic typography — apply via class or tag
+   ─────────────────────────────────────────────────────────── */
+
+.vxn-h1,
+h1.vxn {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--vxn-ink);
+}
+.vxn-h2,
+h2.vxn {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.25;
+  color: var(--vxn-ink);
+}
+.vxn-h3,
+h3.vxn {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 22px;
+  line-height: 1.3;
+  color: var(--vxn-fg-1);
+}
+.vxn-h4,
+h4.vxn {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 1.35;
+  color: var(--vxn-fg-1);
+}
+.vxn-body {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--vxn-fg-2);
+}
+.vxn-body-sm {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--vxn-fg-3);
+}
+.vxn-label {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 1.2;
+  color: var(--vxn-fg-4);
+}
+.vxn-caption {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--vxn-fg-5);
+  letter-spacing: 0.01em;
+}
+.vxn-eyebrow {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vxn-fg-5);
+}
+
+/* Admin flavor — Inter */
+.vxn-admin-h1 {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1.2;
+  color: var(--vxn-ink);
+}
+.vxn-admin-h2 {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.3;
+  color: var(--vxn-ink);
+}
+.vxn-admin-body {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--vxn-fg-3);
+}
+.vxn-admin-table {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--vxn-fg-2);
+}
+.vxn-admin-th {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--vxn-fg-5);
+}
+.vxn-code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--vxn-bg-mist);
+  padding: 2px 6px;
+  border-radius: 4px;
+}

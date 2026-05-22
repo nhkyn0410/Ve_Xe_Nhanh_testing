@@ -1,5 +1,4 @@
 const moment = require('moment-timezone');
-const logger = require('../utils/logger');
 
 /**
  * Cancellation Service
@@ -87,19 +86,13 @@ class CancellationService {
 
     // Use custom policy or default
     const appliedPolicy = policy || this.DEFAULT_POLICY;
-    const hoursUntilDeparture = eligibility.hoursUntilDeparture;
+    const { hoursUntilDeparture } = eligibility;
 
     // Find applicable refund rule
-    let refundPercentage = 0;
-    let appliedRule = null;
-
-    for (const rule of appliedPolicy.rules) {
-      if (hoursUntilDeparture >= rule.hoursBeforeDeparture) {
-        refundPercentage = rule.refundPercentage;
-        appliedRule = rule;
-        break;
-      }
-    }
+    const appliedRule = appliedPolicy.rules.find(
+      (rule) => hoursUntilDeparture >= rule.hoursBeforeDeparture
+    ) || null;
+    const refundPercentage = appliedRule ? appliedRule.refundPercentage : 0;
 
     // Calculate refund amount
     const originalAmount = booking.finalPrice || ticket.totalPrice;
@@ -132,7 +125,7 @@ class CancellationService {
    * @param {string} operatorId - Operator ID (for custom policies)
    * @returns {Object} Cancellation policy
    */
-  static async getCancellationPolicy(operatorId = null) {
+  static async getCancellationPolicy(_operatorId = null) {
     // TODO: Implement custom operator policies from database
     // For now, return default policy
 

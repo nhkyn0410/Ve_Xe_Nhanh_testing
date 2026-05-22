@@ -7,6 +7,7 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const http = require('http');
 const logger = require('./utils/logger');
+const { setupSwagger } = require('./docs/swagger');
 
 // Load environment variables
 dotenv.config();
@@ -34,6 +35,7 @@ const tripManagerRoutes = require('./routes/tripManager.routes');
 const complaintRoutes = require('./routes/complaint.routes');
 const contentRoutes = require('./routes/content.routes');
 const reviewRoutes = require('./routes/review.routes');
+const guestRoutes = require('./routes/guest.routes');
 
 // Import middleware
 const errorHandler = require('./middleware/error.middleware');
@@ -57,25 +59,27 @@ connectDB();
 connectRedis();
 
 // Security middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      fontSrc: ["'self'", 'data:'],
-      connectSrc: ["'self'"],
-      frameSrc: ["'none'"],
-      objectSrc: ["'none'"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        fontSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'"],
+        frameSrc: ["'none'"],
+        objectSrc: ["'none'"],
+      },
     },
-  },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true,
-  },
-}));
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  })
+);
 
 // Additional security headers
 app.use(setSecurityHeaders);
@@ -151,6 +155,8 @@ app.get(`/api/${API_VERSION}`, (req, res) => {
   });
 });
 
+setupSwagger(app, API_VERSION);
+
 // Mount routes
 app.use(`/api/${API_VERSION}/auth`, authRoutes);
 app.use(`/api/${API_VERSION}/users`, userRoutes);
@@ -168,6 +174,7 @@ app.use(`/api/${API_VERSION}/trip-manager`, tripManagerRoutes);
 app.use(`/api/${API_VERSION}/complaints`, complaintRoutes);
 app.use(`/api/${API_VERSION}/content`, contentRoutes);
 app.use(`/api/${API_VERSION}/reviews`, reviewRoutes);
+app.use(`/api/${API_VERSION}/guest`, guestRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -193,10 +200,11 @@ schedulerService.initialize();
 
 // Start server
 server.listen(PORT, () => {
-  logger.start(`=====================================================================`)
+  logger.start(`=====================================================================`);
   logger.success(`Máy chủ đang chạy ở chế độ ${process.env.NODE_ENV} trên port ${PORT}`);
   logger.success(`Health check: http://localhost:${PORT}/health`);
   logger.success(`API endpoint: http://localhost:${PORT}/api/${API_VERSION}`);
+  logger.success(`Swagger docs: http://localhost:${PORT}/api/${API_VERSION}/docs`);
 });
 
 // Handle unhandled promise rejections
@@ -230,6 +238,5 @@ process.on('SIGTERM', () => {
     logger.info('Server đã tắt. Tiến trình kết thúc!');
   });
 });
-
 
 module.exports = app;

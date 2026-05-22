@@ -1,214 +1,167 @@
 import { useState } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Form, Input, Button, Card, message, Divider } from 'antd';
-import { MailOutlined, LockOutlined, GoogleOutlined, FacebookOutlined, ThunderboltOutlined, SafetyOutlined, GiftOutlined } from '@ant-design/icons';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { message } from 'antd';
+import { MailOutlined, LockOutlined, QrcodeOutlined } from '@ant-design/icons';
+import AuthShell from '../../components/auth/AuthShell';
+import AuthField from '../../components/auth/AuthField';
 import useAuthStore from '../../store/authStore';
 import customerApi from '../../services/customerApi';
 
 const CustomerLoginPage = () => {
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuthStore();
 
-  // Get redirect path from location state or default to home
   const from = location.state?.from?.pathname || '/';
 
-  const onFinish = async (values) => {
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  const validate = () => {
+    const next = {};
+    if (!identifier.trim()) next.identifier = 'Vui lòng nhập email hoặc số điện thoại';
+    if (!password) next.password = 'Vui lòng nhập mật khẩu';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (loading || !validate()) return;
     setLoading(true);
     try {
-      // Transform email to identifier for backend
-      const loginData = {
-        identifier: values.email,
-        password: values.password,
-      };
-
-      const response = await customerApi.login(loginData);
-
-      // Response structure: { status, message, data: { user, accessToken, refreshToken } }
+      const response = await customerApi.login({
+        identifier: identifier.trim(),
+        password,
+        rememberMe: remember,
+      });
       if (response.status === 'success') {
         const { user, accessToken } = response.data;
-
-        // Set user as customer role
         login({ ...user, role: 'customer' }, accessToken);
-
         message.success('Đăng nhập thành công!');
-
-        // Redirect to previous page or home
         navigate(from, { replace: true });
       }
     } catch (error) {
-      message.error(error || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+      message.error(
+        error || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    message.info('Tính năng đăng nhập Google đang được phát triển');
-  };
-
-  const handleFacebookLogin = async () => {
-    message.info('Tính năng đăng nhập Facebook đang được phát triển');
+  const onEnter = (e) => {
+    if (e.key === 'Enter') handleSubmit();
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-red-900 to-orange-900 text-white overflow-hidden relative">
-      {/* Animated Background như homepage */}
-      <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-600/90 via-red-600/80 to-orange-600/90"></div>
-        
-        <div className="absolute inset-0">
-          <div className="absolute top-20 left-10 w-96 h-96 bg-gradient-to-r from-red-400/20 to-orange-500/20 rounded-full blur-3xl animate-float"></div>
-          <div className="absolute bottom-20 right-10 w-80 h-80 bg-gradient-to-r from-pink-400/20 to-red-500/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-red-400/10 to-orange-400/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }}></div>
-          
-          <div className="absolute top-32 right-20 w-32 h-32 border border-white/10 rounded-lg rotate-45 animate-pulse"></div>
-          <div className="absolute bottom-32 left-20 w-24 h-24 border border-white/10 rounded-full animate-pulse" style={{ animationDelay: '1s' }}></div>
-          <div className="absolute top-1/3 left-1/4 w-16 h-16 bg-white/5 rounded-lg rotate-12 animate-pulse" style={{ animationDelay: '3s' }}></div>
+    <AuthShell
+      side={{
+        eyebrow: 'TÍCH ĐIỂM · ƯU ĐÃI THÀNH VIÊN',
+        headline: 'Chào mừng trở lại.',
+        body: 'Đăng nhập để tích điểm, đặt vé nhanh và theo dõi mọi chuyến đi trong một tài khoản.',
+      }}
+    >
+      <h1 className="m-0 text-[32px] font-semibold tracking-tight text-vxn-ink">
+        Đăng nhập
+      </h1>
+      <p className="m-0 mb-7 mt-2 text-[14px] text-vxn-fg-3">
+        Chưa có tài khoản?{' '}
+        <Link
+          to="/register"
+          className="font-medium text-vxn-teal-800 hover:text-vxn-teal-700"
+        >
+          Đăng ký miễn phí →
+        </Link>
+      </p>
+
+      <div className="flex flex-col gap-4">
+        <AuthField
+          label="Email hoặc số điện thoại"
+          name="identifier"
+          value={identifier}
+          onChange={(v) => setIdentifier(v)}
+          icon={MailOutlined}
+          placeholder="email@vidu.com hoặc 09xxxxxxxx"
+          autoComplete="username"
+          error={errors.identifier}
+          onKeyDown={onEnter}
+          autoFocus
+        />
+        <AuthField
+          label="Mật khẩu"
+          name="password"
+          type="password"
+          value={password}
+          onChange={(v) => setPassword(v)}
+          icon={LockOutlined}
+          placeholder="Nhập mật khẩu"
+          autoComplete="current-password"
+          error={errors.password}
+          onKeyDown={onEnter}
+        />
+
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setRemember((r) => !r)}
+            className="inline-flex items-center gap-2 border-0 bg-transparent p-0 text-[13px] text-vxn-fg-2"
+          >
+            <span
+              className="grid h-[18px] w-[18px] place-items-center rounded transition-colors"
+              style={{
+                background: remember ? '#E89B26' : '#fff',
+                border: remember ? '1.5px solid #E89B26' : '1.5px solid #DFE2EC',
+              }}
+            >
+              {remember && (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M5 13l4 4L19 7"
+                    stroke="#fff"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
+            </span>
+            Ghi nhớ đăng nhập
+          </button>
+          <Link
+            to="/forgot-password"
+            className="text-[13px] font-medium text-vxn-teal-800 hover:text-vxn-teal-700"
+          >
+            Quên mật khẩu?
+          </Link>
         </div>
+
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={loading}
+          className="mt-2 h-12 w-full rounded-[10px] border-0 text-[15px] font-semibold text-white transition hover:opacity-95 disabled:opacity-60"
+          style={{ background: '#036672' }}
+        >
+          {loading ? 'Đang đăng nhập…' : 'Đăng nhập'}
+        </button>
       </div>
 
-      <div className="relative flex items-center justify-center min-h-screen p-4 py-6">
-        <div className="w-full max-w-xl">
-          {/* Logo and Title - Compact */}
-          <div className="text-center mb-4">
-            <div className="inline-flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-red-600 rounded-2xl flex items-center justify-center shadow-xl">
-                <ThunderboltOutlined className="text-xl text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-black text-white bg-gradient-to-r from-white via-orange-100 to-red-100 bg-clip-text text-transparent">
-                  Vé xe nhanh
-                </h1>
-                <p className="text-white/80 text-sm">Đăng nhập khách hàng</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Login Card */}
-          <Card className="backdrop-blur-xl bg-white/95 shadow-2xl border-0 rounded-3xl overflow-hidden">
-            {/* Card Header - Compact */}
-            <div className="bg-gradient-to-r from-red-500 via-red-600 to-orange-600 -mx-6 -mt-6 mb-4 px-6 py-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MailOutlined className="text-lg text-white" />
-                  <h2 className="text-xl font-bold text-white mb-0">Đăng Nhập</h2>
-                </div>
-                {/* Feature badges inline */}
-                <div className="flex gap-2">
-                  {[
-                    { icon: <ThunderboltOutlined />, text: 'Nhanh' },
-                    { icon: <SafetyOutlined />, text: 'An toàn' },
-                    { icon: <GiftOutlined />, text: 'Ưu đãi' }
-                  ].map((badge, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-1 px-2 py-1 bg-white/20 backdrop-blur-sm rounded-lg border border-white/30"
-                    >
-                      <span className="text-white text-xs">{badge.icon}</span>
-                      <span className="text-xs font-semibold text-white hidden sm:inline">{badge.text}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="px-6 pb-6">
-
-              <Form
-                name="customer-login"
-                onFinish={onFinish}
-                layout="vertical"
-                size="middle"
-                autoComplete="off"
-              >
-                <Form.Item
-                  name="email"
-                  label={<span className="text-xs font-semibold text-gray-700">Email</span>}
-                  rules={[
-                    { required: true, message: 'Nhập email!' },
-                    { type: 'email', message: 'Email không hợp lệ!' },
-                  ]}
-                  className="mb-3"
-                >
-                  <Input
-                    prefix={<MailOutlined className="text-red-500" />}
-                    placeholder="example@email.com"
-                    className="h-10 rounded-lg border-2 border-gray-200 hover:border-red-400 focus:border-red-500 transition-all"
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  name="password"
-                  label={<span className="text-xs font-semibold text-gray-700">Mật khẩu</span>}
-                  rules={[{ required: true, message: 'Nhập mật khẩu!' }]}
-                  className="mb-2"
-                >
-                  <Input.Password
-                    prefix={<LockOutlined className="text-red-500" />}
-                    placeholder="Nhập mật khẩu"
-                    className="h-10 rounded-lg border-2 border-gray-200 hover:border-red-400 focus:border-red-500 transition-all"
-                  />
-                </Form.Item>
-
-                <div className="text-right mb-4">
-                  <Link to="/forgot-password" className="text-xs text-red-600 hover:text-red-700 font-medium">
-                    Quên mật khẩu?
-                  </Link>
-                </div>
-
-                {/* Submit Button & Social Login */}
-                <div className="grid grid-cols-3 gap-3">
-                  <Button
-                    type="primary"
-                    htmlType="submit"
-                    loading={loading}
-                    icon={<ThunderboltOutlined />}
-                    className="h-10 rounded-lg bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 border-0 font-bold shadow-lg hover:shadow-xl transition-all"
-                  >
-                    {loading ? 'Đăng nhập...' : 'Đăng Nhập'}
-                  </Button>
-
-                  <Button
-                    icon={<GoogleOutlined />}
-                    onClick={handleGoogleLogin}
-                    className="h-10 rounded-lg border-2 border-gray-200 hover:border-red-300 hover:bg-red-50 transition-all"
-                  >
-                    Google
-                  </Button>
-
-                  <Button
-                    icon={<FacebookOutlined />}
-                    onClick={handleFacebookLogin}
-                    className="h-10 rounded-lg border-2 border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all"
-                  >
-                    Facebook
-                  </Button>
-                </div>
-              </Form>
-
-              {/* Footer Links */}
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
-                <Link to="/" className="text-sm text-gray-500 hover:text-red-600 transition-colors">
-                  ← Trang chủ
-                </Link>
-                <p className="text-sm text-gray-600">
-                  Chưa có tài khoản?{' '}
-                  <Link to="/register" className="text-red-600 hover:text-red-700 font-bold">
-                    Đăng ký
-                  </Link>
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          {/* Footer - Compact */}
-          <p className="text-center text-xs text-white/60 mt-3">
-          </p>
+      <div className="mt-6 flex items-start gap-2.5 rounded-[10px] bg-vxn-bg-soft p-3.5">
+        <QrcodeOutlined style={{ fontSize: 18, color: '#E89B26', marginTop: 2 }} />
+        <div className="text-[12px] leading-[1.5] text-vxn-fg-3">
+          Đặt vé không cần tài khoản?{' '}
+          <Link
+            to="/tra-cuu-ve"
+            className="font-medium text-vxn-teal-800 hover:text-vxn-teal-700"
+          >
+            Tra cứu vé bằng mã đặt chỗ →
+          </Link>
         </div>
       </div>
-    </div>
+    </AuthShell>
   );
 };
 

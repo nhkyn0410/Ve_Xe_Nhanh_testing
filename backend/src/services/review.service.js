@@ -185,7 +185,7 @@ class ReviewService {
 
       const reviews = await Review.find({ userId })
         .populate('tripId', 'departureTime')
-        .populate('operatorId', 'companyName logo')
+        .populate('operatorId', 'operatorName companyName logo')
         .sort('-createdAt')
         .skip((page - 1) * limit)
         .limit(limit)
@@ -205,6 +205,51 @@ class ReviewService {
       };
     } catch (error) {
       logger.error('Lỗi nhận đánh giá của người dùng:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the current user's completed bookings that have not been reviewed yet.
+   * Powers the "awaiting review" card on the My Reviews page.
+   * @param {string} userId - User ID
+   * @returns {Promise<Object>} Pending bookings + total
+   */
+  async getPendingReviews(userId) {
+    try {
+      const completedBookings = await Booking.find({
+        customerId: userId,
+        status: 'completed',
+      })
+        .populate({
+          path: 'tripId',
+          select: 'departureTime routeId',
+          populate: {
+            path: 'routeId',
+            select: 'routeName origin destination',
+          },
+        })
+        .populate('operatorId', 'operatorName companyName logo')
+        .sort('-createdAt')
+        .lean();
+
+      const bookingIds = completedBookings.map((b) => b._id);
+      const reviewedIds = await Review.find({
+        bookingId: { $in: bookingIds },
+      }).distinct('bookingId');
+      const reviewedSet = new Set(reviewedIds.map((id) => id.toString()));
+
+      const pending = completedBookings.filter(
+        (b) => !reviewedSet.has(b._id.toString())
+      );
+
+      return {
+        success: true,
+        pending,
+        total: pending.length,
+      };
+    } catch (error) {
+      logger.error('Lỗi khi lấy danh sách chờ đánh giá:', error);
       throw error;
     }
   }
@@ -315,7 +360,7 @@ class ReviewService {
     try {
       const booking = await Booking.findById(bookingId)
         .populate('tripId')
-        .populate('operatorId', 'companyName');
+        .populate('operatorId', 'operatorName companyName');
 
       if (!booking) {
         throw new Error('Booking không tồn tại');

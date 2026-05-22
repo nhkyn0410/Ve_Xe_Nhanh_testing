@@ -1,0 +1,228 @@
+{
+  "typography": {
+    "display": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "800",
+        "fontSize": "72",
+        "lineHeight": "20%",
+        "letterSpacing": "-2%",
+        "paragraphSpacing": "16",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Hero, landing page"
+    },
+    "h1": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "600",
+        "fontSize": "48",
+        "lineHeight": "20%",
+        "letterSpacing": "-2%",
+        "paragraphSpacing": "16",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Page title chinh"
+    },
+    "h2": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "600",
+        "fontSize": "36",
+        "lineHeight": "20%",
+        "letterSpacing": "-1%",
+        "paragraphSpacing": "16",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Section heading"
+    },
+    "h3": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "600",
+        "fontSize": "28",
+        "lineHeight": "20%",
+        "letterSpacing": "-1%",
+        "paragraphSpacing": "16",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Card heading, modal title"
+    },
+    "h4": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "500",
+        "fontSize": "22",
+        "lineHeight": "20%",
+        "letterSpacing": "0%",
+        "paragraphSpacing": "8",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Sub-heading, sidebar"
+    },
+    "h5": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "500",
+        "fontSize": "18",
+        "lineHeight": "20%",
+        "letterSpacing": "0%",
+        "paragraphSpacing": "8",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Widget title, accordion"
+    },
+    "body-lg": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "400",
+        "fontSize": "18",
+        "lineHeight": "20%",
+        "letterSpacing": "0%",
+        "paragraphSpacing": "16",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Lead paragraph, intro"
+    },
+    "body": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "400",
+        "fontSize": "16",
+        "lineHeight": "20%",
+        "letterSpacing": "0%",
+        "paragraphSpacing": "16",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Noi dung doan van chinh"
+    },
+    "body-sm": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "400",
+        "fontSize": "14",
+        "lineHeight": "20%",
+        "letterSpacing": "0%",
+        "paragraphSpacing": "8",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Helper text, description"
+    },
+    "label-lg": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "500",
+        "fontSize": "14",
+        "lineHeight": "20%",
+        "letterSpacing": "1%",
+        "paragraphSpacing": "0",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Button lon, input label"
+    },
+    "label": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "500",
+        "fontSize": "13",
+        "lineHeight": "20%",
+        "letterSpacing": "1%",
+        "paragraphSpacing": "0",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Button, tab, menu item"
+    },
+    "label-sm": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "500",
+        "fontSize": "12",
+        "lineHeight": "20%",
+        "letterSpacing": "1%",
+        "paragraphSpacing": "0",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Badge, tag nho, tooltip"
+    },
+    "caption": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "400",
+        "fontSize": "12",
+        "lineHeight": "20%",
+        "letterSpacing": "1%",
+        "paragraphSpacing": "0",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Timestamp, metadata, caption"
+    },
+    "overline": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "600",
+        "fontSize": "11",
+        "lineHeight": "20%",
+        "letterSpacing": "8%",
+        "paragraphSpacing": "0",
+        "textCase": "uppercase",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Section label UPPERCASE"
+    },
+    "code": {
+      "value": {
+        "fontFamily": "JetBrains Mono",
+        "fontWeight": "400",
+        "fontSize": "14",
+        "lineHeight": "20%",
+        "letterSpacing": "0%",
+        "paragraphSpacing": "0",
+        "textCase": "none",
+        "textDecoration": "none"
+      },
+      "type": "typography",
+      "description": "Code block, inline code"
+    },
+    "link": {
+      "value": {
+        "fontFamily": "Be Vietnam Pro",
+        "fontWeight": "500",
+        "fontSize": "16",
+        "lineHeight": "20%",
+        "letterSpacing": "0%",
+        "paragraphSpacing": "0",
+        "textCase": "none",
+        "textDecoration": "underline"
+      },
+      "type": "typography",
+      "description": "Hyperlink trong body text"
+    }
+  }
+}

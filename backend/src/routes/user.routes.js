@@ -1,4 +1,5 @@
 const express = require('express');
+const { param } = require('express-validator');
 const userController = require('../controllers/user.controller');
 const ticketController = require('../controllers/ticket.controller');
 const { authenticate } = require('../middleware/auth.middleware');
@@ -7,7 +8,7 @@ const {
   validateUpdateProfile,
   validateChangePassword,
 } = require('../middleware/validate.middleware');
-const { param } = require('express-validator');
+
 
 const router = express.Router();
 

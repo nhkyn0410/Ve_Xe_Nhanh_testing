@@ -1,6 +1,5 @@
 const User = require('../models/User');
 const Booking = require('../models/Booking');
-const Voucher = require('../models/Voucher');
 const notificationService = require('./notification.service');
 const logger = require('../utils/logger');
 
@@ -327,17 +326,10 @@ class LoyaltyService {
         'pointsHistory.isExpired': false,
       });
 
-      let totalUsersAffected = 0;
-      let totalPointsRemoved = 0;
-
-      for (const user of users) {
+      const results = await Promise.all(users.map(async (user) => {
         const expiredPoints = await user.removeExpiredPoints();
         if (expiredPoints > 0) {
           await user.save();
-          totalUsersAffected++;
-          totalPointsRemoved += expiredPoints;
-
-          // Notify user
           if (user.email) {
             await notificationService.sendEmail(
               user.email,
@@ -345,8 +337,17 @@ class LoyaltyService {
               this.generatePointsExpiredEmail(user.fullName, expiredPoints, user.totalPoints)
             );
           }
+          return expiredPoints;
         }
-      }
+        return 0;
+      }));
+
+      let totalUsersAffected = 0;
+      let totalPointsRemoved = 0;
+      results.forEach((pts) => {
+        if (pts > 0) totalUsersAffected += 1;
+        totalPointsRemoved += pts;
+      });
 
       logger.info(
         `Cleanup completed: ${totalUsersAffected} users, ${totalPointsRemoved} points removed`

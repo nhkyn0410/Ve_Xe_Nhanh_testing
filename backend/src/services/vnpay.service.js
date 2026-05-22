@@ -109,7 +109,7 @@ class VNPayService {
     vnp_Params['vnp_SecureHash'] = secureHash;
 
     // Create payment URL with the same encoding
-    const paymentUrl = this.vnp_Url + '?' + querystring.stringify(vnp_Params).replace(/%20/g, '+');
+    const paymentUrl = `${this.vnp_Url}?${querystring.stringify(vnp_Params).replace(/%20/g, '+')}`;
 
     return paymentUrl;
   }

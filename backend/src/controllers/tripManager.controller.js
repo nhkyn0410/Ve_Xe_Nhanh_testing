@@ -1,101 +1,99 @@
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const { validationResult } = require('express-validator');
 const logger = require('../utils/logger');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const EmployeeService = require('../services/employee.service');
 
 /**
  * Trip Manager Controller
- * Handles trip manager/driver authentication and trip management
- * UC-18: Trip Manager Login
+ * Handles trip manager/driver trip management.
+ * Authentication is handled by the Employee model via POST /api/v1/employees/login.
  */
 class TripManagerController {
   /**
-   * UC-18: Trip Manager Login
+   * Trip manager login
    * POST /api/trip-manager/login
    */
   static async login(req, res) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
+      const employeeCode = req.body.employeeCode || req.body.username;
+      const { password } = req.body;
+
+      if (!employeeCode || !password) {
         return res.status(400).json({
+          status: 'error',
           success: false,
-          errors: errors.array(),
+          message: 'Vui lòng nhập đầy đủ mã nhân viên và mật khẩu',
         });
       }
 
-      const { username, password } = req.body;
+      const employee = await EmployeeService.findByEmployeeCode(employeeCode);
 
-      // For now, use a simple hardcoded trip manager account
-      // In production, this would query a TripManager model
-      const tripManagers = [
-        {
-          id: 'tm_001',
-          username: 'manager1',
-          password: await bcrypt.hash('manager123', 10), // manager123
-          name: 'Nguyen Van Manager',
-          role: 'trip_manager',
-          operatorId: null, // Can be assigned to specific operator
-        },
-        {
-          id: 'tm_002',
-          username: 'driver1',
-          password: await bcrypt.hash('driver123', 10), // driver123
-          name: 'Tran Van Driver',
-          role: 'driver',
-          operatorId: null,
-        },
-      ];
-
-      // Find trip manager
-      const tripManager = tripManagers.find((tm) => tm.username === username);
-
-      if (!tripManager) {
+      if (!employee) {
         return res.status(401).json({
+          status: 'error',
           success: false,
-          message: 'Tên đăng nhập hoặc mật khẩu không đúng',
+          message: 'Mã nhân viên hoặc mật khẩu không đúng',
         });
       }
 
-      // Verify password
-      const isPasswordValid = await bcrypt.compare(password, tripManager.password);
+      if (employee.role !== 'trip_manager' && employee.role !== 'driver') {
+        return res.status(403).json({
+          status: 'error',
+          success: false,
+          message: 'Chỉ Trip Manager hoặc Driver mới có quyền truy cập',
+        });
+      }
 
+      if (employee.status !== 'active') {
+        return res.status(403).json({
+          status: 'error',
+          success: false,
+          message: 'Tài khoản không hoạt động',
+        });
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, employee.password);
       if (!isPasswordValid) {
         return res.status(401).json({
+          status: 'error',
           success: false,
-          message: 'Tên đăng nhập hoặc mật khẩu không đúng',
+          message: 'Mã nhân viên hoặc mật khẩu không đúng',
         });
       }
 
-      // Generate JWT token
       const token = jwt.sign(
         {
-          id: tripManager.id,
-          username: tripManager.username,
-          role: tripManager.role,
-          type: 'trip_manager',
+          userId: employee._id,
+          role: employee.role,
+          operatorId: employee.operatorId,
+          type: 'access',
         },
         process.env.JWT_SECRET || 'your-secret-key',
-        { expiresIn: '8h' } // 8 hour shift
+        {
+          expiresIn: '7d',
+          issuer: 'vexenhanh',
+        }
       );
 
-      res.json({
+      const employeeData = employee.toObject();
+      delete employeeData.password;
+
+      return res.status(200).json({
+        status: 'success',
         success: true,
         message: 'Đăng nhập thành công',
         data: {
           token,
-          tripManager: {
-            id: tripManager.id,
-            name: tripManager.name,
-            username: tripManager.username,
-            role: tripManager.role,
-          },
+          employee: employeeData,
+          tripManager: employeeData,
         },
       });
     } catch (error) {
       logger.error('Lỗi đăng nhập quản lý chuyến:', error);
-      res.status(500).json({
+      return res.status(500).json({
+        status: 'error',
         success: false,
-        message: 'Lỗi đăng nhập',
+        message: error.message || 'Đăng nhập thất bại',
       });
     }
   }
@@ -170,7 +168,7 @@ class TripManagerController {
       const trips = await Trip.find(query)
         .populate('routeId', 'routeName origin destination')
         .populate('busId', 'busNumber busType licensePlate')
-        .populate('operatorId', 'companyName phone')
+        .populate('operatorId', 'operatorName companyName phone')
         .sort({ departureTime: 1 })
         .limit(50);
 
@@ -189,6 +187,7 @@ class TripManagerController {
           licensePlate: trip.busId.licensePlate,
         },
         operator: {
+          operatorName: trip.operatorId.operatorName || trip.operatorId.companyName,
           companyName: trip.operatorId.companyName,
           phone: trip.operatorId.phone,
         },
@@ -227,7 +226,7 @@ class TripManagerController {
       const trip = await Trip.findById(tripId)
         .populate('routeId')
         .populate('busId')
-        .populate('operatorId', 'companyName phone email');
+        .populate('operatorId', 'operatorName companyName phone email');
 
       if (!trip) {
         return res.status(404).json({

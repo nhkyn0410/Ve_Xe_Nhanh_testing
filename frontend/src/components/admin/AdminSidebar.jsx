@@ -1,185 +1,209 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Badge, Typography, Tooltip } from 'antd';
-import {
-  DashboardOutlined,
-  UserOutlined,
-  ShopOutlined,
-  FileTextOutlined,
-  CustomerServiceOutlined,
-  BarChartOutlined,
-  SafetyOutlined,
-  SettingOutlined,
-  BellOutlined,
-} from '@ant-design/icons';
+/**
+ * System-admin sidebar — faithful port of the "Trang admin hệ thống"
+ * design package admin-chrome.jsx AdminSidebar, adapted to React Router.
+ * 240px white surface, grouped nav, teal active state, "Admin / HỆ THỐNG"
+ * lockup, logout footer. Scoped under .vxn-admin (vxn-admin.css).
+ */
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import useAdminAuthStore from '../../store/adminAuthStore';
+import { VxnIcon } from './vxn';
+import logoMark from '../../assets/brand/logo-icon_background_white_notext.svg';
 
-const { Text } = Typography;
+const ADMIN_NAV = [
+  {
+    group: null,
+    items: [
+      { key: 'dashboard', label: 'Tổng quan', icon: 'layout-grid', path: '/admin/dashboard' },
+    ],
+  },
+  {
+    group: 'Vận hành',
+    items: [
+      { key: 'operators', label: 'Nhà xe', icon: 'building-2', path: '/admin/operators' },
+      { key: 'routes', label: 'Tuyến đường', icon: 'map', path: '/admin/routes' },
+      { key: 'trips', label: 'Chuyến xe', icon: 'route', path: '/admin/trips' },
+      { key: 'tx', label: 'Giao dịch', icon: 'wallet', path: '/admin/transactions' },
+      { key: 'vouchers', label: 'Voucher hệ thống', icon: 'ticket-percent', path: '/admin/vouchers' },
+    ],
+  },
+  {
+    group: 'Khách hàng',
+    items: [
+      { key: 'customers', label: 'Khách hàng', icon: 'users-round', path: '/admin/users' },
+      {
+        key: 'complaints',
+        label: 'Khiếu nại',
+        icon: 'message-square-warning',
+        path: '/admin/complaints',
+      },
+      { key: 'reviews', label: 'Đánh giá', icon: 'star', path: '/admin/reviews' },
+    ],
+  },
+  {
+    group: 'Nội dung',
+    items: [
+      { key: 'content', label: 'Trang chủ & CMS', icon: 'newspaper', path: '/admin/content' },
+    ],
+  },
+  {
+    group: 'Khác',
+    items: [{ key: 'reports', label: 'Báo cáo', icon: 'chart-column', path: '/admin/reports' }],
+  },
+];
+
+function VxnLogo() {
+  return <img src={logoMark} alt="Vé Xe Nhanh" style={{ height: 38, objectFit: 'contain' }} />;
+}
 
 const AdminSidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAdminAuthStore();
 
-  const menuItems = [
-    {
-      key: 'dashboard',
-      path: '/admin/dashboard',
-      icon: <DashboardOutlined />,
-      label: 'Dashboard',
-      description: 'Tổng quan hệ thống',
-      badge: null,
-    },
-    {
-      key: 'users',
-      path: '/admin/users',
-      icon: <UserOutlined />,
-      label: 'Người Dùng',
-      description: 'Quản lý users',
-      badge: null,
-    },
-    {
-      key: 'operators',
-      path: '/admin/operators',
-      icon: <ShopOutlined />,
-      label: 'Nhà Xe',
-      description: 'Duyệt & quản lý',
-      badge: null, // Pending approvals
-    },
-    {
-      key: 'complaints',
-      path: '/admin/complaints',
-      icon: <CustomerServiceOutlined />,
-      label: 'Khiếu Nại',
-      description: 'Xử lý khiếu nại',
-      badge: null, // New complaints
-    },
-    {
-      key: 'content',
-      path: '/admin/content',
-      icon: <FileTextOutlined />,
-      label: 'Nội Dung',
-      description: 'Banners, Blogs, FAQs',
-      badge: null,
-    },
-    {
-      key: 'reports',
-      path: '/admin/reports',
-      icon: <BarChartOutlined />,
-      label: 'Báo Cáo',
-      description: 'Thống kê & phân tích',
-      badge: null,
-    },
-  ];
-
-  const isActive = (path) => location.pathname === path;
+  const handleLogout = () => {
+    logout();
+    navigate('/admin/login');
+  };
 
   return (
-    <div className="h-full bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex flex-col shadow-2xl relative overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-500/20 to-purple-500/20"></div>
-      </div>
-
-      {/* Logo */}
-      <div className="relative p-6 border-b border-slate-700/50">
-        <Link to="/admin/dashboard" className="flex items-center space-x-3 group">
-          <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-purple-600 rounded-xl flex items-center justify-center shadow-xl group-hover:scale-105 transition-all duration-300">
-            <SafetyOutlined className="text-2xl text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-white">Vé xe nhanh Admin</h1>
-            <p className="text-xs text-slate-400">System Administration</p>
+    <aside
+      style={{
+        width: 240,
+        minHeight: '100vh',
+        background: '#fff',
+        borderRight: '1px solid var(--vxn-border)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        position: 'sticky',
+        top: 0,
+        alignSelf: 'flex-start',
+        flexShrink: 0,
+      }}
+    >
+      <div>
+        <Link
+          to="/admin/dashboard"
+          style={{
+            padding: '0 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            borderBottom: '1px solid var(--vxn-border)',
+            height: 73,
+            boxSizing: 'border-box',
+          }}
+        >
+          <VxnLogo />
+          <div
+            style={{
+              font: '600 16px var(--font-display)',
+              color: 'var(--vxn-ink)',
+              lineHeight: 1.15,
+            }}
+          >
+            Admin
+            <span
+              style={{
+                font: '500 11px var(--font-display)',
+                color: 'var(--vxn-saffron-600)',
+                letterSpacing: '0.08em',
+              }}
+              className="pl-2"
+            >
+              HỆ THỐNG
+            </span>
           </div>
         </Link>
-      </div>
 
-      {/* Navigation */}
-      <nav className="relative flex-1 p-4 space-y-2 overflow-y-auto">
-        {menuItems.map((item) => (
-          <Tooltip
-            key={item.key}
-            title={item.description}
-            placement="right"
-            mouseEnterDelay={0.5}
-          >
-            <Link
-              to={item.path}
-              className={`
-                relative block px-4 py-4 rounded-xl transition-all duration-300 group overflow-hidden
-                ${
-                  isActive(item.path)
-                    ? 'bg-gradient-to-r from-primary-500/20 to-purple-500/20 text-white shadow-lg border border-primary-500/30'
-                    : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                }
-              `}
-            >
-              {/* Active indicator */}
-              {isActive(item.path) && (
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary-400 to-purple-500 rounded-r"></div>
+        <nav style={{ padding: '12px 12px 4px', display: 'flex', flexDirection: 'column' }}>
+          {ADMIN_NAV.map((sec, si) => (
+            <div key={si}>
+              {sec.group && (
+                <div
+                  style={{
+                    font: '500 10px var(--font-display)',
+                    letterSpacing: '0.12em',
+                    color: 'var(--vxn-fg-5)',
+                    textTransform: 'uppercase',
+                    padding: '14px 14px 6px',
+                  }}
+                >
+                  {sec.group}
+                </div>
               )}
-
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <span
-                    className={`text-xl transition-all duration-300 group-hover:scale-110 ${
-                      isActive(item.path) ? 'text-primary-400' : 'text-slate-400 group-hover:text-primary-400'
-                    }`}
-                  >
-                    {item.icon}
-                  </span>
-                  {item.badge && (
-                    <Badge
-                      count={item.badge}
-                      size="small"
-                      className="absolute -top-1 -right-1"
-                    />
-                  )}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className={`font-medium transition-colors ${
-                    isActive(item.path) ? 'text-white' : 'text-slate-200'
-                  }`}>
-                    {item.label}
-                  </div>
-                  <div className="text-xs text-slate-400 opacity-80 truncate">
-                    {item.description}
-                  </div>
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {sec.items.map((item) => {
+                  const on = location.pathname.startsWith(item.path);
+                  return (
+                    <Link
+                      key={item.key}
+                      to={item.path}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '10px 12px',
+                        borderRadius: 8,
+                        background: on ? 'rgba(0,100,129,0.08)' : 'transparent',
+                        color: on ? 'var(--vxn-teal-800)' : 'var(--vxn-fg-2)',
+                        border: 0,
+                        font: `${on ? 600 : 400} 13.5px var(--font-display)`,
+                        textAlign: 'left',
+                        position: 'relative',
+                      }}
+                    >
+                      {on && (
+                        <span
+                          style={{
+                            position: 'absolute',
+                            left: -12,
+                            top: 6,
+                            bottom: 6,
+                            width: 3,
+                            background: 'var(--vxn-teal-700)',
+                            borderRadius: '0 3px 3px 0',
+                          }}
+                        />
+                      )}
+                      <VxnIcon
+                        name={item.icon}
+                        size={18}
+                        color={on ? 'var(--vxn-teal-800)' : 'var(--vxn-fg-3)'}
+                        style={{ opacity: on ? 1 : 0.8 }}
+                      />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
               </div>
-            </Link>
-          </Tooltip>
-        ))}
-      </nav>
-
-      {/* Quick Actions */}
-      <div className="relative p-4 border-t border-slate-700/50">
-        <div className="space-y-3">
-          {/* System Status */}
-          
-
-          {/* Quick Actions */}
-          <div className="flex space-x-2">
-            <Tooltip title="Notifications">
-              <button className="flex-1 p-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-lg transition-colors border border-slate-700/30">
-                <BellOutlined className="text-slate-400 hover:text-primary-400 transition-colors" />
-              </button>
-            </Tooltip>
-            <Tooltip title="Settings">
-              <button className="flex-1 p-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-lg transition-colors border border-slate-700/30">
-                <SettingOutlined className="text-slate-400 hover:text-primary-400 transition-colors" />
-              </button>
-            </Tooltip>
-          </div>
-        </div>
+            </div>
+          ))}
+        </nav>
       </div>
 
-      {/* Footer */}
-      <div className="relative p-4 border-t border-slate-700/50">
-        <Text className="text-xs text-slate-500 text-center block">
-           Admin Panel
-        </Text>
-        <Text className="text-xs text-slate-600 text-center block mt-1">
-        </Text>
+      <div style={{ padding: '12px 12px 18px', borderTop: '1px solid var(--vxn-border-muted)' }}>
+        <button
+          onClick={handleLogout}
+          style={{
+            display: 'flex',
+            width: '100%',
+            alignItems: 'center',
+            gap: 12,
+            padding: '11px 12px',
+            borderRadius: 8,
+            background: 'transparent',
+            border: 0,
+            cursor: 'pointer',
+            color: 'var(--vxn-fg-3)',
+            font: '500 13.5px var(--font-display)',
+          }}
+        >
+          <VxnIcon name="log-out" size={18} style={{ opacity: 0.75 }} />
+          Đăng xuất
+        </button>
       </div>
-    </div>
+    </aside>
   );
 };
 

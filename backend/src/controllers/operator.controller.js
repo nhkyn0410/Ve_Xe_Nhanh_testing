@@ -45,6 +45,7 @@ exports.register = async (req, res, next) => {
   try {
     const {
       companyName,
+      operatorName,
       email,
       phone,
       password,
@@ -67,6 +68,7 @@ exports.register = async (req, res, next) => {
     // Register operator
     const result = await OperatorService.register({
       companyName,
+      operatorName,
       email,
       phone,
       password,
@@ -210,6 +212,24 @@ exports.getById = async (req, res, next) => {
     res.status(404).json({
       status: 'error',
       message: error.message || 'Không tìm thấy nhà xe',
+    });
+  }
+};
+
+exports.getPublicProfile = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const profile = await OperatorService.getPublicProfile(id);
+
+    res.status(200).json({
+      status: 'success',
+      data: profile,
+    });
+  } catch (error) {
+    logger.error('Lỗi lấy hồ sơ nhà xe:', error);
+    res.status(404).json({
+      status: 'error',
+      message: error.message || 'Không tìm thấy hồ sơ nhà xe',
     });
   }
 };

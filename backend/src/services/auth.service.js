@@ -110,7 +110,7 @@ class AuthService {
     });
 
     logger.info('Người dùng đã tạo thành công với ID:', user._id);
-    logger.info('Mật khẩu was hashed:', user.password ? user.password.substring(0, 20) + '...' : 'NONE');
+    logger.info('Mật khẩu was hashed:', user.password ? `${user.password.substring(0, 20)}...` : 'NONE');
 
     // Tạo email verification token
     const verificationToken = user.createEmailVerificationToken();
@@ -140,9 +140,10 @@ class AuthService {
    * @param {String} identifier - Email hoặc phone
    * @param {String} password - Password
    * @param {Boolean} rememberMe - Remember me option
+   * @param {String|null} requiredRole - Vai trò bắt buộc (nếu có)
    * @returns {Object} User và tokens
    */
-  static async login(identifier, password, rememberMe = false) {
+  static async login(identifier, password, rememberMe = false, requiredRole = null) {
     // Debug: Log login attempt
     logger.info('=== LOGIN ===');
     logger.info('Identifier:', identifier);
@@ -179,6 +180,11 @@ class AuthService {
     if (!isPasswordCorrect) {
       logger.info('LỖI: Mật khẩu không khớp');
       throw new Error('Email/Số điện thoại hoặc mật khẩu không đúng');
+    }
+
+    if (requiredRole && user.role !== requiredRole) {
+      logger.info('LỖI: Người dùng không có quyền truy cập yêu cầu');
+      throw new Error('Tài khoản không có quyền truy cập khu vực quản trị');
     }
 
     // Cập nhật lastLogin
@@ -285,7 +291,7 @@ class AuthService {
         fullName: name,
         facebookId: id,
         avatar: picture?.data?.url,
-        isEmailVerified: email ? true : false,
+        isEmailVerified: Boolean(email),
         // OAuth users không cần password
         phone: `FACEBOOK_${id}`, // Temporary phone, user can update later
       });

@@ -1,8 +1,174 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-Thin.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: italic;
+  font-weight: 100;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-ThinItalic.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-ExtraLight.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: italic;
+  font-weight: 200;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-ExtraLightItalic.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-Light.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: italic;
+  font-weight: 300;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-LightItalic.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-Italic.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-Medium.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-MediumItalic.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-SemiBold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-SemiBoldItalic.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-BoldItalic.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-ExtraBold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: italic;
+  font-weight: 800;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-ExtraBoldItalic.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-Black.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: italic;
+  font-weight: 900;
+  font-display: swap;
+  src: url('./assets/fonts/BeVietnamPro-BlackItalic.ttf') format('truetype');
+}
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --vxn-teal-900: #00476b;
+  --vxn-teal-800: #00506a;
+  --vxn-teal-700: #006481;
+  --vxn-teal-600: #2b7ead;
+  --vxn-saffron-700: #d18a1e;
+  --vxn-saffron-600: #e89b26;
+  --vxn-saffron-500: #f3b132;
+  --vxn-ink: #181c22;
+  --vxn-fg-1: #2d3138;
+  --vxn-fg-2: #404753;
+  --vxn-fg-3: #475569;
+  --vxn-fg-4: #5e6165;
+  --vxn-fg-5: #64748b;
+  --vxn-bg: #ffffff;
+  --vxn-bg-soft: #f9f9ff;
+  --vxn-bg-mist: #f1f3fd;
+  --vxn-bg-cloud: #ebeef7;
+  --vxn-border: #dfe2ec;
+  --vxn-border-strong: #cbd5e1;
+  --font-display: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+  --font-ui: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+}
 
 * {
   margin: 0;
@@ -10,40 +176,102 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  background: var(--vxn-bg-soft);
+}
+
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  min-width: 320px;
+  background: var(--vxn-bg-soft);
+  color: var(--vxn-fg-1);
+  font-family: var(--font-display);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--vxn-bg-mist);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #888;
+  background: var(--vxn-border-strong);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: var(--vxn-fg-5);
 }
 
-/* Ant Design customizations */
 .ant-btn-primary {
   box-shadow: none;
 }
 
 .ant-btn-primary:hover {
-  opacity: 0.9;
+  opacity: 0.94;
+}
+
+.vxn-home-search .ant-form-item {
+  margin-bottom: 0;
+}
+
+.vxn-home-search .ant-select,
+.vxn-home-search .ant-picker {
+  width: 100%;
+}
+
+.vxn-home-search .ant-select-selector,
+.vxn-home-search .ant-picker {
+  height: auto !important;
+  min-height: 28px;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.vxn-home-search .ant-select-selection-search {
+  inset-inline-start: 0 !important;
+  inset-inline-end: 0 !important;
+}
+
+.vxn-home-search .ant-select-selection-search-input {
+  height: 28px !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: var(--vxn-ink) !important;
+}
+
+.vxn-home-search .ant-select-selection-item,
+.vxn-home-search .ant-select-selection-placeholder,
+.vxn-home-search .ant-picker-input > input {
+  padding-inline-start: 0 !important;
+  padding-inline-end: 0 !important;
+  color: var(--vxn-ink) !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  line-height: 28px !important;
+}
+
+.vxn-home-search .ant-select-selection-placeholder,
+.vxn-home-search .ant-picker-input > input::placeholder {
+  color: var(--vxn-fg-5) !important;
+}
+
+.vxn-home-search .ant-picker-focused {
+  box-shadow: none !important;
+}
+
+.vxn-mobile-drawer .ant-drawer-content {
+  background: var(--vxn-teal-700);
 }

@@ -135,9 +135,10 @@ const BannerManagement = () => {
       width: 120,
       render: (position) => {
         const positions = {
-          home_hero: 'Trang chủ - Hero',
-          home_secondary: 'Trang chủ - Phụ',
-          sidebar: 'Sidebar',
+          homepage: 'Trang chủ',
+          booking: 'Mua vé',
+          routes: 'Khám phá',
+          footer: 'Footer',
         };
         return <Tag>{positions[position] || position}</Tag>;
       },
@@ -266,9 +267,10 @@ const BannerManagement = () => {
             rules={[{ required: true, message: 'Vui lòng chọn vị trí' }]}
           >
             <Select placeholder="Chọn vị trí">
-              <Option value="home_hero">Trang chủ - Hero</Option>
-              <Option value="home_secondary">Trang chủ - Phụ</Option>
-              <Option value="sidebar">Sidebar</Option>
+              <Option value="homepage">Trang chủ</Option>
+              <Option value="booking">Mua vé</Option>
+              <Option value="routes">Khám phá</Option>
+              <Option value="footer">Footer</Option>
             </Select>
           </Form.Item>
 

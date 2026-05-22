@@ -1,7 +1,8 @@
 const express = require('express');
+
 const router = express.Router();
 const complaintController = require('../controllers/complaint.controller');
-const { authenticate, authorize } = require('../middleware/auth.middleware');
+const { authenticate } = require('../middleware/auth.middleware');
 
 /**
  * Complaint Routes (User-facing)

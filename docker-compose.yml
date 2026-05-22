@@ -1,0 +1,112 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test:
+        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  mongo-express:
+    image: mongo-express:1.0.2-20-alpine3.19
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      ME_CONFIG_MONGODB_URL: ${ME_CONFIG_MONGODB_URL:-mongodb://mongodb:27017/}
+      ME_CONFIG_BASICAUTH: ${ME_CONFIG_BASICAUTH:-false}
+      ME_CONFIG_SITE_COOKIESECRET: ${ME_CONFIG_SITE_COOKIESECRET:-ve-xe-nhanh-cookie-secret}
+      ME_CONFIG_SITE_SESSIONSECRET: ${ME_CONFIG_SITE_SESSIONSECRET:-ve-xe-nhanh-session-secret}
+    ports:
+      - "${ME_PORT:-8081}:8081"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 5000
+      API_VERSION: ${API_VERSION:-v1}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/vexenhanh}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      JWT_SECRET: ${JWT_SECRET:-change-this-jwt-secret-to-a-long-random-value}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      EMAIL_SERVICE: ${EMAIL_SERVICE:-}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Vé xe nhanh}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SMS_ENABLED: ${SMS_ENABLED:-false}
+      DEMO_MODE: ${DEMO_MODE:-true}
+      PAYMENT_SUCCESS_URL: ${PAYMENT_SUCCESS_URL:-http://localhost:3000/payment/success}
+      PAYMENT_FAILURE_URL: ${PAYMENT_FAILURE_URL:-http://localhost:3000/payment/failure}
+      PAYMENT_ERROR_URL: ${PAYMENT_ERROR_URL:-http://localhost:3000/payment/error}
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:5000/health').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+
+volumes:
+  mongodb_data:
+  redis_data:

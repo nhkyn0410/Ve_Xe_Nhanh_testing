@@ -1,110 +1,123 @@
-// Design System Configuration for Vé xe nhanh
+// Design System Configuration for Ve Xe Nhanh
+// The legacy Tailwind class names (primary, accent-orange, accent-purple)
+// remain available, but their values now map to the VXN teal/saffron brand.
+
+const teal = {
+  50: '#EEF8FA',
+  100: '#DDF1F5',
+  200: '#B9E1E9',
+  300: '#85CAD8',
+  400: '#4DABC0',
+  500: '#2B7EAD',
+  600: '#006481',
+  700: '#00506A',
+  800: '#00476B',
+  900: '#07364C',
+};
+
+const saffron = {
+  50: '#FFF8EA',
+  100: '#FFF1D2',
+  200: '#FFE2A8',
+  300: '#FFD078',
+  400: '#F8BF4E',
+  500: '#F3B132',
+  600: '#E89B26',
+  700: '#D18A1E',
+  800: '#9B6518',
+  900: '#704512',
+};
+
+const mist = {
+  50: '#F9F9FF',
+  100: '#F1F3FD',
+  200: '#EBEEF7',
+  300: '#E5E8F1',
+  400: '#CBD5E1',
+  500: '#94A3B8',
+  600: '#64748B',
+  700: '#475569',
+  800: '#334155',
+  900: '#1E293B',
+};
+
 export const designSystem = {
-  // Color Palette
   colors: {
-    // Primary Brand Colors (Red Theme)
-    primary: {
-      50: '#fef2f2',
-      100: '#fee2e2',
-      200: '#fecaca',
-      300: '#fca5a5',
-      400: '#f87171',
-      500: '#ef4444', // Main primary
-      600: '#dc2626',
-      700: '#b91c1c',
-      800: '#991b1b',
-      900: '#7f1d1d',
+    primary: teal,
+    secondary: mist,
+    teal,
+    saffron,
+    background: {
+      DEFAULT: '#FFFFFF',
+      soft: '#F9F9FF',
+      mist: '#F1F3FD',
+      cloud: '#EBEEF7',
+      stone: '#E4E5E7',
+      fog: '#E5E8F1',
     },
-    
-    // Secondary Colors
-    secondary: {
-      50: '#f8fafc',
-      100: '#f1f5f9',
-      200: '#e2e8f0',
-      300: '#cbd5e1',
-      400: '#94a3b8',
-      500: '#64748b', // Main secondary
-      600: '#475569',
-      700: '#334155',
-      800: '#1e293b',
-      900: '#0f172a',
+    border: {
+      DEFAULT: '#DFE2EC',
+      strong: '#CBD5E1',
+      muted: '#C0C7D6',
     },
-    
-    // Accent Colors
     accent: {
+      // Compatibility alias for existing accent-purple-* classes.
       purple: {
-        50: '#faf5ff',
-        100: '#f3e8ff',
-        200: '#e9d5ff',
-        300: '#d8b4fe',
-        400: '#c084fc',
-        500: '#a855f7', // Main purple
-        600: '#9333ea',
-        700: '#7c3aed',
-        800: '#6b21a8',
-        900: '#581c87',
+        50: '#F1F3FD',
+        100: '#E5E8F1',
+        200: '#D4E3FF',
+        300: '#B9D0F5',
+        400: '#7AA3D7',
+        500: '#2B7EAD',
+        600: '#005DAA',
+        700: '#00476B',
+        800: '#07364C',
+        900: '#042A3A',
       },
-      orange: {
-        50: '#fff7ed',
-        100: '#ffedd5',
-        200: '#fed7aa',
-        300: '#fdba74',
-        400: '#fb923c',
-        500: '#f97316', // Main orange
-        600: '#ea580c',
-        700: '#c2410c',
-        800: '#9a3412',
-        900: '#7c2d12',
-      },
+      orange: saffron,
     },
-    
-    // Semantic Colors
     success: {
-      50: '#f0fdf4',
-      100: '#dcfce7',
-      200: '#bbf7d0',
-      300: '#86efac',
-      400: '#4ade80',
-      500: '#22c55e', // Main success
-      600: '#16a34a',
-      700: '#15803d',
-      800: '#166534',
-      900: '#14532d',
+      50: '#ECFDF3',
+      100: '#D4F5E2',
+      200: '#A7EBC7',
+      300: '#6EDAA5',
+      400: '#35C17F',
+      500: '#0F9F62',
+      600: '#007A4F',
+      700: '#00613D',
+      800: '#064C33',
+      900: '#063B2A',
     },
-    
     warning: {
-      50: '#fffbeb',
-      100: '#fef3c7',
-      200: '#fde68a',
-      300: '#fcd34d',
-      400: '#fbbf24',
-      500: '#f59e0b', // Main warning
-      600: '#d97706',
-      700: '#b45309',
-      800: '#92400e',
-      900: '#78350f',
+      50: '#FFFBEB',
+      100: '#FEF3C7',
+      200: '#FDE68A',
+      300: '#FCD34D',
+      400: '#FBBF24',
+      500: '#E89B26',
+      600: '#D18A1E',
+      700: '#B45309',
+      800: '#92400E',
+      900: '#78350F',
     },
-    
     error: {
-      50: '#fef2f2',
-      100: '#fee2e2',
-      200: '#fecaca',
-      300: '#fca5a5',
-      400: '#f87171',
-      500: '#ef4444', // Main error
-      600: '#dc2626',
-      700: '#b91c1c',
-      800: '#991b1b',
-      900: '#7f1d1d',
+      50: '#FEF2F2',
+      100: '#FEE2E2',
+      200: '#FECACA',
+      300: '#FCA5A5',
+      400: '#F87171',
+      500: '#EF4444',
+      600: '#DC2626',
+      700: '#B91C1C',
+      800: '#991B1B',
+      900: '#7F1D1D',
     },
-    
-    // Neutral Colors
     neutral: {
-      50: '#fafafa',
-      100: '#f5f5f5',
-      200: '#e5e5e5',
-      300: '#d4d4d4',
-      400: '#a3a3a3',
+      50: '#FAFAFA',
+      100: '#F5F5F5',
+      200: '#E5E5E5',
+      300: '#D4D4D4',
+      400: '#A3A3A3',
       500: '#737373',
       600: '#525252',
       700: '#404040',
@@ -112,14 +125,13 @@ export const designSystem = {
       900: '#171717',
     },
   },
-  
-  // Typography Scale
+
   typography: {
     fontFamily: {
-      sans: ['Inter', 'system-ui', 'sans-serif'],
-      mono: ['JetBrains Mono', 'Consolas', 'monospace'],
+      sans: ['Be Vietnam Pro', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      display: ['Be Vietnam Pro', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
     },
-    
     fontSize: {
       xs: ['0.75rem', { lineHeight: '1rem' }],
       sm: ['0.875rem', { lineHeight: '1.25rem' }],
@@ -132,7 +144,6 @@ export const designSystem = {
       '5xl': ['3rem', { lineHeight: '1' }],
       '6xl': ['3.75rem', { lineHeight: '1' }],
     },
-    
     fontWeight: {
       thin: '100',
       extralight: '200',
@@ -145,8 +156,7 @@ export const designSystem = {
       black: '900',
     },
   },
-  
-  // Spacing Scale
+
   spacing: {
     px: '1px',
     0: '0',
@@ -184,8 +194,7 @@ export const designSystem = {
     80: '20rem',
     96: '24rem',
   },
-  
-  // Border Radius
+
   borderRadius: {
     none: '0',
     sm: '0.125rem',
@@ -197,20 +206,20 @@ export const designSystem = {
     '3xl': '1.5rem',
     full: '9999px',
   },
-  
-  // Shadows
+
   boxShadow: {
     sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-    DEFAULT: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
-    md: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-    lg: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-    xl: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-    '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)',
+    DEFAULT: '0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08)',
+    md: '0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.08)',
+    lg: '0 10px 15px -3px rgb(0 71 107 / 0.12), 0 4px 6px -4px rgb(0 71 107 / 0.12)',
+    xl: '0 20px 25px -5px rgb(0 71 107 / 0.16), 0 8px 10px -6px rgb(0 71 107 / 0.12)',
+    '2xl': '0 25px 50px -12px rgb(0 40 60 / 0.25)',
     inner: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)',
     none: 'none',
+    vxn: '0 4px 6px -4px rgba(0,100,129,0.2), 0 10px 15px -3px rgba(0,100,129,0.2)',
+    card: '0 25px 50px -12px rgba(0,40,60,0.25)',
   },
-  
-  // Breakpoints
+
   screens: {
     xs: '475px',
     sm: '640px',
@@ -219,8 +228,7 @@ export const designSystem = {
     xl: '1280px',
     '2xl': '1536px',
   },
-  
-  // Animation
+
   animation: {
     none: 'none',
     spin: 'spin 1s linear infinite',
@@ -231,33 +239,30 @@ export const designSystem = {
     slideIn: 'slideIn 0.3s ease-out',
     slideUp: 'slideUp 0.3s ease-out',
   },
-  
-  // Gradients
+
   gradients: {
-    primary: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-    secondary: 'linear-gradient(135deg, #64748b 0%, #334155 100%)',
-    purple: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
-    orange: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-    success: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-    warning: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-    error: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-    rainbow: 'linear-gradient(135deg, #ef4444 0%, #a855f7 50%, #f97316 100%)',
-    redBlue: 'linear-gradient(135deg, #ef4444 0%, #3b82f6 100%)',
-    redPurple: 'linear-gradient(135deg, #ef4444 0%, #a855f7 100%)',
+    primary: 'linear-gradient(135deg, #2B7EAD 0%, #006481 100%)',
+    secondary: 'linear-gradient(135deg, #64748B 0%, #334155 100%)',
+    purple: 'linear-gradient(135deg, #D4E3FF 0%, #2B7EAD 100%)',
+    orange: 'linear-gradient(135deg, #F3B132 0%, #E89B26 100%)',
+    success: 'linear-gradient(135deg, #0F9F62 0%, #00613D 100%)',
+    warning: 'linear-gradient(135deg, #F3B132 0%, #D18A1E 100%)',
+    error: 'linear-gradient(135deg, #F87171 0%, #DC2626 100%)',
+    rainbow: 'linear-gradient(135deg, #006481 0%, #2B7EAD 45%, #F3B132 100%)',
+    redBlue: 'linear-gradient(135deg, #006481 0%, #2B7EAD 100%)',
+    redPurple: 'linear-gradient(135deg, #006481 0%, #F3B132 100%)',
+    hero: 'linear-gradient(135deg, rgba(0,71,107,0.58) 0%, rgba(0,40,60,0.68) 100%)',
   },
 };
 
-// Ant Design Theme Configuration
 export const antdTheme = {
   token: {
-    // Primary Colors
-    colorPrimary: designSystem.colors.primary[500],
+    colorPrimary: designSystem.colors.primary[600],
     colorSuccess: designSystem.colors.success[500],
     colorWarning: designSystem.colors.warning[500],
     colorError: designSystem.colors.error[500],
     colorInfo: designSystem.colors.primary[500],
-    
-    // Typography
+
     fontFamily: designSystem.typography.fontFamily.sans.join(', '),
     fontSize: 14,
     fontSizeHeading1: 32,
@@ -265,47 +270,41 @@ export const antdTheme = {
     fontSizeHeading3: 20,
     fontSizeHeading4: 16,
     fontSizeHeading5: 14,
-    
-    // Border Radius
+
     borderRadius: 6,
     borderRadiusLG: 8,
     borderRadiusSM: 4,
-    
-    // Spacing
+
     padding: 16,
     paddingLG: 24,
     paddingSM: 12,
     paddingXS: 8,
-    
+
     margin: 16,
     marginLG: 24,
     marginSM: 12,
     marginXS: 8,
-    
-    // Layout
+
     controlHeight: 32,
     controlHeightLG: 40,
     controlHeightSM: 24,
-    
-    // Colors
-    colorBgContainer: '#ffffff',
-    colorBgElevated: '#ffffff',
-    colorBgLayout: '#f5f5f5',
-    colorBorder: '#d9d9d9',
-    colorBorderSecondary: '#f0f0f0',
-    
-    // Text Colors
-    colorText: designSystem.colors.neutral[800],
-    colorTextSecondary: designSystem.colors.neutral[600],
-    colorTextTertiary: designSystem.colors.neutral[500],
-    colorTextQuaternary: designSystem.colors.neutral[400],
-    
-    // Link Colors
-    colorLink: designSystem.colors.primary[500],
-    colorLinkHover: designSystem.colors.primary[600],
-    colorLinkActive: designSystem.colors.primary[700],
+
+    colorBgContainer: '#FFFFFF',
+    colorBgElevated: '#FFFFFF',
+    colorBgLayout: designSystem.colors.background.soft,
+    colorBorder: designSystem.colors.border.DEFAULT,
+    colorBorderSecondary: designSystem.colors.background.cloud,
+
+    colorText: '#181C22',
+    colorTextSecondary: '#404753',
+    colorTextTertiary: '#5E6165',
+    colorTextQuaternary: '#64748B',
+
+    colorLink: designSystem.colors.primary[600],
+    colorLinkHover: designSystem.colors.primary[500],
+    colorLinkActive: designSystem.colors.primary[800],
   },
-  
+
   components: {
     Button: {
       borderRadius: 6,
@@ -313,66 +312,60 @@ export const antdTheme = {
       controlHeightLG: 44,
       controlHeightSM: 28,
       fontWeight: 500,
+      primaryShadow: '0 4px 6px -4px rgba(0,100,129,0.25)',
     },
-    
     Card: {
       borderRadius: 8,
       boxShadow: designSystem.boxShadow.sm,
+      colorBorderSecondary: designSystem.colors.border.DEFAULT,
     },
-    
     Input: {
       borderRadius: 6,
       controlHeight: 36,
       controlHeightLG: 44,
       controlHeightSM: 28,
     },
-    
     Select: {
       borderRadius: 6,
       controlHeight: 36,
       controlHeightLG: 44,
       controlHeightSM: 28,
     },
-    
     Table: {
       borderRadius: 8,
-      headerBg: designSystem.colors.neutral[50],
+      headerBg: designSystem.colors.background.mist,
     },
-    
     Modal: {
       borderRadius: 12,
     },
-    
     Drawer: {
       borderRadius: 0,
     },
-    
     Menu: {
       borderRadius: 6,
       itemBorderRadius: 6,
+      itemSelectedBg: designSystem.colors.background.mist,
+      itemSelectedColor: designSystem.colors.primary[700],
     },
   },
 };
 
-// Component Variants
 export const componentVariants = {
   button: {
-    primary: 'bg-primary-500 hover:bg-primary-600 text-white',
-    secondary: 'bg-secondary-500 hover:bg-secondary-600 text-white',
-    outline: 'border border-primary-500 text-primary-500 hover:bg-primary-50',
-    ghost: 'text-primary-500 hover:bg-primary-50',
+    primary: 'bg-primary-600 hover:bg-primary-700 text-white',
+    secondary: 'bg-secondary-700 hover:bg-secondary-800 text-white',
+    outline: 'border border-primary-600 text-primary-700 hover:bg-primary-50',
+    ghost: 'text-primary-700 hover:bg-primary-50',
     danger: 'bg-error-500 hover:bg-error-600 text-white',
   },
-  
   card: {
-    default: 'bg-white border border-neutral-200 shadow-sm',
+    default: 'bg-white border border-vxn-border shadow-sm',
     elevated: 'bg-white shadow-lg border-0',
     bordered: 'bg-white border-2 border-primary-200',
     ghost: 'bg-transparent border-0',
   },
-  
   panel: {
-    default: 'bg-white rounded-lg border border-neutral-200',
+    default: 'bg-white rounded-lg border border-vxn-border',
     elevated: 'bg-white rounded-lg shadow-lg',
     bordered: 'bg-white rounded-lg border-2 border-primary-200',
     ghost: 'bg-transparent rounded-lg',

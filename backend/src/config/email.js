@@ -4,8 +4,14 @@ const logger = require('../utils/logger');
 // Email transporter configuration
 let transporter;
 
+const getEmailFrom = () =>
+  process.env.EMAIL_FROM || process.env.FROM_EMAIL || process.env.EMAIL_USER || process.env.SMTP_USER;
+const getEmailFromName = () => process.env.EMAIL_FROM_NAME || process.env.FROM_NAME || 'Vé xe nhanh';
+
 const createTransporter = () => {
-  if (process.env.EMAIL_SERVICE === 'sendgrid') {
+  const emailService = process.env.EMAIL_SERVICE;
+
+  if (emailService === 'sendgrid') {
     // SendGrid configuration
     transporter = nodemailer.createTransport({
       host: 'smtp.sendgrid.net',
@@ -16,7 +22,7 @@ const createTransporter = () => {
         pass: process.env.SENDGRID_API_KEY,
       },
     });
-  } else if (process.env.EMAIL_SERVICE === 'gmail') {
+  } else if (emailService === 'gmail' || process.env.EMAIL_USER || process.env.EMAIL_PASSWORD) {
     // Gmail configuration (for development)
     transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
@@ -38,7 +44,7 @@ const createTransporter = () => {
       secure: process.env.SMTP_SECURE === 'true',
       auth: {
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
+        pass: process.env.SMTP_PASSWORD || process.env.SMTP_PASS,
       },
     });
   }
@@ -99,7 +105,7 @@ const sendEmail = async ({ to, subject, html, text, attachments = [], qrCodeData
     }
 
     const mailOptions = {
-      from: `${process.env.EMAIL_FROM_NAME} <${process.env.EMAIL_FROM}>`,
+      from: `"${getEmailFromName()}" <${getEmailFrom()}>`,
       to,
       subject,
       html: finalHtml,

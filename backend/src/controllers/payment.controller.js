@@ -256,16 +256,10 @@ class PaymentController {
    */
   static async getOperatorPayments(req, res) {
     try {
-      const { operatorId } = req.params;
+      // Operator id comes from the authenticated operator (route is operator-only,
+      // mounted at /operators/payments with no :operatorId param).
+      const operatorId = req.params.operatorId || req.userId;
       const { status, paymentMethod, fromDate, toDate } = req.query;
-
-      // Verify operator access
-      if (req.user.role === 'operator' && req.user.operatorId !== operatorId) {
-        return res.status(403).json({
-          success: false,
-          message: 'Không có quyền truy cập',
-        });
-      }
 
       const filters = {};
       if (status) filters.status = status;
@@ -381,16 +375,8 @@ class PaymentController {
    */
   static async getStatistics(req, res) {
     try {
-      const { operatorId } = req.params;
+      const operatorId = req.params.operatorId || req.userId;
       const { fromDate, toDate } = req.query;
-
-      // Verify operator access
-      if (req.user.role === 'operator' && req.user.operatorId !== operatorId) {
-        return res.status(403).json({
-          success: false,
-          message: 'Không có quyền truy cập',
-        });
-      }
 
       const filters = {};
       if (fromDate) filters.fromDate = fromDate;

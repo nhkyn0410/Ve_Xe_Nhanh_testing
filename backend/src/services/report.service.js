@@ -1,11 +1,11 @@
-const Booking = require('../models/Booking');
-const Trip = require('../models/Trip');
-const Route = require('../models/Route');
-const Payment = require('../models/Payment');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const moment = require('moment-timezone');
 const mongoose = require('mongoose');
+const Booking = require('../models/Booking');
+const Trip = require('../models/Trip');
+const Payment = require('../models/Payment');
+
 const logger = require('../utils/logger');
 
 /**
@@ -22,7 +22,7 @@ class ReportService {
    */
   async getRevenueReport(operatorId, filters = {}) {
     try {
-      const { startDate, endDate, routeId, format } = filters;
+      const { startDate, endDate, routeId } = filters;
 
       // Default date range: current month
       const start = startDate
@@ -130,10 +130,10 @@ class ReportService {
    * @param {Map} cancellationStatsByRoute - Cancellation statistics by route
    * @returns {Array} Revenue by route
    */
-  async getRevenueByRoute(bookings, cancellationStatsByRoute = new Map()) {
+  async getRevenueByRoute(bookingList, cancellationStatsByRoute = new Map()) {
     const routeMap = new Map();
 
-    bookings.forEach((booking) => {
+    bookingList.forEach((booking) => {
       if (!booking.tripId || !booking.tripId.routeId) return;
 
       const route = booking.tripId.routeId;
@@ -159,21 +159,20 @@ class ReportService {
     });
 
     // Transform to match frontend expectations with correct field names
-    return Array.from(routeMap.values()).map(route => {
-      // Get cancellation rate from the stats map
-      const cancellationStats = cancellationStatsByRoute.get(route.routeId);
+    return Array.from(routeMap.values()).map(({ routeId, routeName, origin, destination, revenue, tickets, bookings }) => {
+      const cancellationStats = cancellationStatsByRoute.get(routeId);
       const cancellationRate = cancellationStats ? cancellationStats.cancellationRate : 0;
 
       return {
-        routeId: route.routeId,
-        routeName: route.routeName,
-        origin: route.origin,
-        destination: route.destination,
-        totalRevenue: route.revenue, // Frontend expects totalRevenue
-        ticketCount: route.tickets, // Frontend expects ticketCount
-        bookings: route.bookings,
-        averagePrice: route.tickets > 0 ? Math.round(route.revenue / route.tickets) : 0, // Calculate average price per ticket
-        cancellationRate: cancellationRate, // Real cancellation rate from query
+        routeId,
+        routeName,
+        origin,
+        destination,
+        totalRevenue: revenue,
+        ticketCount: tickets,
+        bookings,
+        averagePrice: tickets > 0 ? Math.round(revenue / tickets) : 0,
+        cancellationRate,
       };
     });
   }
@@ -252,7 +251,7 @@ class ReportService {
     });
 
     // Fill in missing dates with zero values
-    let currentDate = moment(start);
+    const currentDate = moment(start);
     const endDate = moment(end);
 
     while (currentDate.isSameOrBefore(endDate)) {

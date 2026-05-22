@@ -1,8 +1,6 @@
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
-const path = require('path');
 const moment = require('moment-timezone');
-const QRService = require('./qr.service');
 const logger = require('../utils/logger');
 
 /**
@@ -17,7 +15,7 @@ class PDFService {
    * @returns {Promise<string>} Path to generated PDF
    */
   async generateTicket(ticketData, outputPath) {
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
       try {
         const {
           ticketCode,
@@ -27,7 +25,6 @@ class PDFService {
           tripInfo,
           operator,
           pricing,
-          contactInfo,
         } = ticketData;
 
         // Create PDF document
@@ -191,7 +188,7 @@ class PDFService {
         yPos += 30;
 
         // Passenger list
-        passengers.forEach((passenger, index) => {
+        passengers.forEach((passenger) => {
           doc
             .fontSize(11)
             .fillColor(darkColor)

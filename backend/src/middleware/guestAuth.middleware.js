@@ -1,5 +1,5 @@
 const GuestSessionService = require('../services/guestSession.service');
-
+const logger = require('../utils/logger');
 /**
  * Guest Authentication Middleware
  * Verifies guest session token and attaches guest data to request

@@ -43,22 +43,22 @@ class SMSService {
       );
 
       if (response.data && response.data.CodeResult === '100') {
-        logger.success('VNPT SMS đã gửi thành công đến: ' + phone);
+        logger.success(`VNPT SMS đã gửi thành công đến: ${phone}`);
         return {
           success: true,
           messageId: response.data.SMSID,
           provider: 'vnpt',
         };
       } else {
-        logger.error(' VNPT SMS thất bại: ' + JSON.stringify(response.data));
+        logger.error(`VNPT SMS thất bại: ${JSON.stringify(response.data)}`);
         return {
           success: false,
           error: response.data?.Message || 'SMS sending failed',
           provider: 'vnpt',
         };
       }
-    } catch (error) {
-      logger.error(' VNPT SMS lỗi: ' + error.message);
+      } catch (error) {
+      logger.error(`VNPT SMS lỗi: ${error.message}`);
       return {
         success: false,
         error: error.message,
@@ -95,14 +95,14 @@ class SMSService {
       );
 
       if (response.data && response.data.status === 'success') {
-        logger.success('Viettel SMS đã gửi thành công đến: ' + phone);
+        logger.success(`Viettel SMS đã gửi thành công đến: ${phone}`);
         return {
           success: true,
           messageId: response.data.messageId,
           provider: 'viettel',
         };
       } else {
-        logger.error(' Viettel SMS thất bại: ' + JSON.stringify(response.data));
+        logger.error(`Viettel SMS thất bại: ${JSON.stringify(response.data)}`);
         return {
           success: false,
           error: response.data?.message || 'SMS sending failed',
@@ -110,7 +110,7 @@ class SMSService {
         };
       }
     } catch (error) {
-      logger.error(' Viettel SMS lỗi: ' + error.message);
+      logger.error(`Viettel SMS lỗi: ${error.message}`);
       return {
         success: false,
         error: error.message,
@@ -142,7 +142,7 @@ class SMSService {
     }
 
     // Format phone number (remove spaces, dashes, etc.)
-    const formattedPhone = phone.replace(/[\s\-\(\)]/g, '');
+    const formattedPhone = phone.replace(/[\s()\-]/g, '');
 
     // Validate Vietnamese phone number
     if (!/^(0|\+84)[0-9]{9,10}$/.test(formattedPhone)) {
@@ -154,15 +154,17 @@ class SMSService {
 
     // Send via selected provider
     if (this.provider === 'vnpt') {
-      return await this.sendVNPTSMS(formattedPhone, message);
-    } else if (this.provider === 'viettel') {
-      return await this.sendViettelSMS(formattedPhone, message);
-    } else {
-      return {
-        success: false,
-        error: 'Invalid SMS provider',
-      };
+      return this.sendVNPTSMS(formattedPhone, message);
     }
+
+    if (this.provider === 'viettel') {
+      return this.sendViettelSMS(formattedPhone, message);
+    }
+
+    return {
+      success: false,
+      error: 'Invalid SMS provider',
+    };
   }
 
   /**
@@ -182,7 +184,7 @@ Ghe: ${seatNumbers}
 Tai ve: ${ticketUrl}
 Lien he: 1900-0000`;
 
-    return await this.sendSMS(phone, message);
+    return this.sendSMS(phone, message);
   }
 
   /**
@@ -194,7 +196,7 @@ Lien he: 1900-0000`;
   async sendOTP(phone, otp) {
     const message = `Ve xe nhanh: Ma xac thuc OTP cua ban la: ${otp}. Ma co hieu luc trong 5 phut. KHONG chia se ma nay voi bat ky ai.`;
 
-    return await this.sendSMS(phone, message);
+    return this.sendSMS(phone, message);
   }
 
   /**
@@ -212,7 +214,7 @@ Diem don: ${pickupPoint}
 Ghe: ${seatNumbers}
 Vui long co mat truoc 15 phut!`;
 
-    return await this.sendSMS(phone, message);
+    return this.sendSMS(phone, message);
   }
 
   /**
@@ -226,7 +228,7 @@ Vui long co mat truoc 15 phut!`;
     const message = `Ve xe nhanh: Ve ${bookingCode} (${routeName}) da duoc huy.${refundAmount > 0 ? ` Tien hoan: ${refundAmount.toLocaleString('vi-VN')} VND.` : ''
       } Lien he: 1900-0000`;
 
-    return await this.sendSMS(phone, message);
+    return this.sendSMS(phone, message);
   }
 
   /**
@@ -237,7 +239,7 @@ Vui long co mat truoc 15 phut!`;
    */
   async mockSend(phone, message) {
     logger.info('📱 [MOCK SMS]');
-    logger.info(`Đến: ${phtrêne}`);
+    logger.info(`Đến: ${phone}`);
     logger.info(`Message: ${message}`);
     logger.info('---');
 

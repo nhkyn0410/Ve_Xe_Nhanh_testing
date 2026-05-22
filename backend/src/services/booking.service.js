@@ -1,18 +1,10 @@
+const mongoose = require('mongoose');
 const Booking = require('../models/Booking');
 const Trip = require('../models/Trip');
+const PaymentService = require('./payment.service');
 const SeatLockService = require('./seatLock.service');
 const VoucherService = require('./voucher.service');
-const mongoose = require('mongoose');
 const logger = require('../utils/logger');
-
-// Lazy-load PaymentService to avoid circular dependency
-let PaymentService = null;
-const getPaymentService = () => {
-  if (!PaymentService) {
-    PaymentService = require('./payment.service');
-  }
-  return PaymentService;
-};
 
 /**
  * Booking Service
@@ -146,7 +138,7 @@ class BookingService {
     return {
       booking: await Booking.findById(booking._id)
         .populate('tripId')
-        .populate('operatorId', 'companyName phone email'),
+        .populate('operatorId', 'operatorName companyName phone email'),
       lockInfo: {
         sessionId,
         lockedSeats: lockResult.locked,
@@ -188,13 +180,11 @@ class BookingService {
     // Add seats to trip's booked seats
     const seatNumbers = booking.seats.map((s) => s.seatNumber);
 
-    for (const seat of booking.seats) {
-      trip.bookedSeats.push({
+    trip.bookedSeats.push(...booking.seats.map((seat) => ({
         seatNumber: seat.seatNumber,
         bookingId: booking._id,
         passengerName: seat.passengerName,
-      });
-    }
+      })));
 
     trip.availableSeats -= seatNumbers.length;
     await trip.save();
@@ -206,7 +196,7 @@ class BookingService {
     // Tăng mức sử dụng voucher nếu áp dụng voucher
     if (booking.voucherId) {
       try {
-        await VoucherService.applyToBooking(booking.voucherId);
+        await VoucherService.applyToBooking(booking.voucherId, booking.customerId);
       } catch (error) {
         logger.error('Không thể truy vấn voucher đã sử dụng:', error.message);
       }
@@ -215,9 +205,9 @@ class BookingService {
     // Release Redis locks
     await SeatLockService.releaseSeats(booking.tripId, seatNumbers, sessionId);
 
-    return await Booking.findById(booking._id)
+    return Booking.findById(booking._id)
       .populate('tripId')
-      .populate('operatorId', 'companyName phone email')
+      .populate('operatorId', 'operatorName companyName phone email')
       .populate('voucherId');
   }
 
@@ -267,7 +257,7 @@ class BookingService {
     }
 
     // Use the existing cancelBooking method with booking._id (ObjectId), not bookingCode
-    return await this.cancelBooking(booking._id, reason, 'customer', ipAddress);
+    return this.cancelBooking(booking._id, reason, 'customer', ipAddress);
   }
 
   /**
@@ -286,7 +276,6 @@ class BookingService {
       throw new Error('Không tìm thấy booking');
     }
 
-    const logger = require('../utils/logger');
     logger.info(`[DEBUG] Attempting to cancel booking ${booking.bookingCode} with status: ${booking.status}`);
 
     // Allow cancellation for pending, confirmed, paid, and completed bookings (before departure)
@@ -326,8 +315,7 @@ class BookingService {
     let refundResult = null;
     if (booking.paymentStatus === 'paid') {
       try {
-        const PaymentServiceClass = getPaymentService();
-        refundResult = await PaymentServiceClass.autoRefundOnCancellation(
+        refundResult = await PaymentService.autoRefundOnCancellation(
           bookingId,
           reason,
           ipAddress,
@@ -440,7 +428,7 @@ class BookingService {
   static async getBookingById(bookingId, customerId = null) {
     const booking = await Booking.findById(bookingId)
       .populate('tripId')
-      .populate('operatorId', 'companyName phone email');
+      .populate('operatorId', 'operatorName companyName phone email');
 
     if (!booking) {
       throw new Error('Không tìm thấy booking');
@@ -454,13 +442,26 @@ class BookingService {
     return booking;
   }
 
+  static normalizePhoneForCompare(value) {
+    if (!value) return '';
+    const normalized = String(value).replace(/[\s().-]/g, '');
+    if (/^\+84\d{9}$/.test(normalized)) return `0${normalized.slice(3)}`;
+    if (/^84\d{9}$/.test(normalized)) return `0${normalized.slice(2)}`;
+    return normalized;
+  }
+
   /**
    * Get booking by code (for guests)
    * @param {string} bookingCode - Booking code
-   * @param {string} phone - Contact phone for verification
+   * @param {string|Object} verification - Phone string or { phone, email }
    * @returns {Promise<Booking>} Booking details
    */
-  static async getBookingByCode(bookingCode, phone) {
+  static async getBookingByCode(bookingCode, verification = {}) {
+    const contact =
+      typeof verification === 'string' ? { phone: verification } : verification || {};
+    const phone = contact.phone ? this.normalizePhoneForCompare(contact.phone) : '';
+    const email = contact.email ? String(contact.email).trim().toLowerCase() : '';
+
     const booking = await Booking.findOne({ bookingCode })
       .populate({
         path: 'tripId',
@@ -469,15 +470,33 @@ class BookingService {
           select: 'fromCity toCity origin destination',
         },
       })
-      .populate('operatorId', 'companyName phone email');
+      .populate('operatorId', 'operatorName companyName phone email')
+      .populate('customerId', 'email phone');
 
     if (!booking) {
       throw new Error('Không tìm thấy booking');
     }
 
-    // Verify phone number
-    if (booking.contactInfo.phone !== phone) {
-      throw new Error('Số điện thoại không khớp');
+    const bookingPhones = [
+      booking.contactInfo?.phone,
+      booking.guestInfo?.phone,
+      booking.customerId?.phone,
+    ]
+      .filter(Boolean)
+      .map((value) => this.normalizePhoneForCompare(value));
+    const bookingEmails = [
+      booking.contactInfo?.email,
+      booking.guestInfo?.email,
+      booking.customerId?.email,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim().toLowerCase());
+
+    const phoneMatch = phone && bookingPhones.includes(phone);
+    const emailMatch = email && bookingEmails.includes(email);
+
+    if (!phoneMatch && !emailMatch) {
+      throw new Error('Thông tin xác thực không khớp');
     }
 
     return booking;
@@ -524,16 +543,14 @@ class BookingService {
   static async cleanupExpiredHolds() {
     const expiredBookings = await Booking.findExpiredHolds();
 
-    let cleaned = 0;
-    for (const booking of expiredBookings) {
+    await Promise.all(expiredBookings.map(async (booking) => {
       // Release booking
       booking.cancel('Hết thời gian hold', 'system');
       booking.releaseHold();
       await booking.save();
-      cleaned++;
-    }
+    }));
 
-    return cleaned;
+    return expiredBookings.length;
   }
 
   /**
@@ -543,7 +560,7 @@ class BookingService {
    * @returns {Promise<Array>} Bookings
    */
   static async getCustomerBookings(customerId, filters = {}) {
-    return await Booking.findByCustomer(customerId, filters);
+    return Booking.findByCustomer(customerId, filters);
   }
 
   /**
@@ -553,7 +570,7 @@ class BookingService {
    * @returns {Promise<Array>} Bookings
    */
   static async getOperatorBookings(operatorId, filters = {}) {
-    return await Booking.findByOperator(operatorId, filters);
+    return Booking.findByOperator(operatorId, filters);
   }
 
   /**

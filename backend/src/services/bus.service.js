@@ -1,6 +1,16 @@
 const Bus = require('../models/Bus');
 const BusOperator = require('../models/BusOperator');
+const mongoose = require('mongoose');
 const logger = require('../utils/logger');
+
+const isActualSeat = (seat) => (
+  Boolean(seat) &&
+  seat !== 'DRIVER' &&
+  seat !== 'FLOOR_2' &&
+  seat !== 'ðŸš—' &&
+  seat.toUpperCase() !== 'AISLE' &&
+  !seat.toLowerCase().includes('aisle')
+);
 
 /**
  * Bus Service
@@ -27,7 +37,7 @@ class BusService {
             seat !== '🚗' &&
             seat.toUpperCase() !== 'AISLE' &&
             !seat.toLowerCase().includes('aisle')) {
-            count++;
+            count += 1;
           }
         });
       }
@@ -81,7 +91,7 @@ class BusService {
         throw new Error(`Số hàng trong sơ đồ (${layout.length}) không khớp với số hàng đã khai báo (${rows})`);
       }
 
-      for (let i = 0; i < layout.length; i++) {
+      for (let i = 0; i < layout.length; i += 1) {
         if (layout[i].length !== columns) {
           throw new Error(
             `Số cột ở hàng ${i + 1} (${layout[i].length}) không khớp với số cột đã khai báo (${columns})`
@@ -176,7 +186,7 @@ class BusService {
    * @returns {Object} Bus
    */
   static async getById(busId, operatorId = null) {
-    const bus = await Bus.findById(busId).populate('operatorId', 'companyName email phone');
+    const bus = await Bus.findById(busId).populate('operatorId', 'operatorName companyName email phone');
 
     if (!bus) {
       throw new Error('Xe không tồn tại');
@@ -245,7 +255,7 @@ class BusService {
           );
         }
 
-        for (let i = 0; i < layout.length; i++) {
+        for (let i = 0; i < layout.length; i += 1) {
           if (layout[i].length !== colCount) {
             throw new Error(
               `Số cột ở hàng ${i + 1} (${layout[i].length}) không khớp với số cột đã khai báo (${colCount})`
@@ -356,7 +366,6 @@ class BusService {
     const retiredBuses = await Bus.countDocuments({ operatorId, status: 'retired' });
 
     // Count by bus type
-    const mongoose = require('mongoose');
     let operatorObjectId;
     try {
       operatorObjectId = new mongoose.Types.ObjectId(operatorId);
@@ -431,7 +440,7 @@ class BusService {
 
     // Execute query
     const buses = await Bus.find(query)
-      .populate('operatorId', 'companyName averageRating logo')
+      .populate('operatorId', 'operatorName companyName averageRating logo')
       .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
       .skip(skip)
       .limit(limit);

@@ -92,8 +92,9 @@ const protectTripManager = async (req, res, next) => {
  * Authorize specific roles
  * @param  {...string} roles - Allowed roles (trip_manager, driver)
  */
-const authorizeTripManager = (...roles) => {
-  return (req, res, next) => {
+const authorizeTripManager =
+  (...roles) =>
+  (req, res, next) => {
     if (!req.tripManager) {
       return res.status(401).json({
         success: false,
@@ -110,7 +111,6 @@ const authorizeTripManager = (...roles) => {
 
     next();
   };
-};
 
 module.exports = {
   protectTripManager,

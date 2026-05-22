@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const logger = require('../utils/logger');
 
 /**
  * CSRF Protection Middleware
@@ -16,9 +17,7 @@ const crypto = require('crypto');
 /**
  * Generate CSRF token
  */
-const generateCSRFToken = () => {
-  return crypto.randomBytes(32).toString('hex');
-};
+const generateCSRFToken = () => crypto.randomBytes(32).toString('hex');
 
 /**
  * CSRF token validation middleware
@@ -32,7 +31,8 @@ const validateCSRFToken = (req, res, next) => {
   }
 
   // Get CSRF token from header or body
-  const token = req.headers['x-csrf-token'] || req.body._csrf;
+  const { _csrf: bodyToken } = req.body || {};
+  const token = req.headers['x-csrf-token'] || bodyToken;
   const sessionToken = req.session?.csrfToken;
 
   if (!token || !sessionToken || token !== sessionToken) {
@@ -53,6 +53,7 @@ const setCSRFToken = (req, res, next) => {
   if (!req.session.csrfToken) {
     req.session.csrfToken = generateCSRFToken();
   }
+
   next();
 };
 
@@ -79,7 +80,6 @@ const getCSRFToken = (req, res) => {
  */
 const validateOrigin = (req, res, next) => {
   const origin = req.get('origin');
-  const referer = req.get('referer');
 
   // Skip for safe methods
   const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
@@ -87,13 +87,20 @@ const validateOrigin = (req, res, next) => {
     return next();
   }
 
-  // Allowed origins from environment variable
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
+  // Allowed origins from environment variable + current backend origin for Swagger UI
+  const allowedOrigins = [
+    ...(process.env.ALLOWED_ORIGINS?.split(',') || []),
+    process.env.FRONTEND_URL,
+    `${req.protocol}://${req.get('host')}`,
+  ]
+    .filter(Boolean)
+    .map((value) => value.replace(/\/+$/, ''));
 
   // Check if request is from an allowed origin
   if (origin) {
-    const isAllowed = allowedOrigins.some(allowed =>
-      origin === allowed || origin.startsWith(allowed)
+    const normalizedOrigin = origin.replace(/\/+$/, '');
+    const isAllowed = allowedOrigins.some(
+      (allowed) => normalizedOrigin === allowed || normalizedOrigin.startsWith(`${allowed}/`)
     );
 
     if (!isAllowed && process.env.NODE_ENV === 'production') {

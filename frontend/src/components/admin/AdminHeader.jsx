@@ -1,160 +1,116 @@
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Button, Dropdown, Avatar, Badge, Typography, Breadcrumb } from 'antd';
-import {
-  UserOutlined,
-  LogoutOutlined,
-  SettingOutlined,
-  BellOutlined,
-  SafetyOutlined,
-  DashboardOutlined,
-  HomeOutlined,
-} from '@ant-design/icons';
+/**
+ * System-admin top bar — faithful port of the "Trang admin hệ thống"
+ * design package admin-chrome.jsx AdminTopBar, adapted to React Router.
+ * 73px, global search, icon actions, identity chip with SUPER ADMIN tag.
+ * Notification counts are intentionally omitted (no real feed yet) rather
+ * than fabricating a number.
+ */
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Dropdown } from 'antd';
 import useAdminAuthStore from '../../store/adminAuthStore';
+import { VxnIcon } from './vxn';
 
-const { Text } = Typography;
+function IconBtn({ icon, onClick, title }) {
+  return (
+    <button title={title} onClick={onClick} style={{
+      width: 38, height: 38, borderRadius: 8, border: 0, background: 'transparent',
+      display: 'grid', placeItems: 'center', cursor: 'pointer', position: 'relative',
+      color: 'var(--vxn-fg-5)',
+    }}>
+      <VxnIcon name={icon} size={19} style={{ opacity: 0.7 }} />
+    </button>
+  );
+}
+
+function initialsOf(name = '', email = '') {
+  const src = (name || email || 'Admin').trim();
+  const parts = src.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[parts.length - 2][0] + parts[parts.length - 1][0]).toUpperCase();
+  return src.slice(0, 2).toUpperCase();
+}
 
 const AdminHeader = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { admin: user, logout } = useAdminAuthStore();
+  const { admin, logout } = useAdminAuthStore();
+  const [q, setQ] = useState('');
+
+  const name = admin?.fullName || admin?.name || admin?.email || 'Quản trị viên';
+  const initials = initialsOf(admin?.fullName || admin?.name, admin?.email);
 
   const handleLogout = () => {
     logout();
     navigate('/admin/login');
   };
 
-  // Generate breadcrumb items based on current path
-  const getBreadcrumbItems = () => {
-    const pathSegments = location.pathname.split('/').filter(Boolean);
-    const items = [
-      {
-        title: (
-          <span className="flex items-center gap-1">
-            <HomeOutlined />
-            Admin
-          </span>
-        ),
-      },
-    ];
-
-    if (pathSegments.length > 1) {
-      const pageName = pathSegments[1];
-      const pageNames = {
-        dashboard: 'Dashboard',
-        users: 'Quản lý người dùng',
-        operators: 'Quản lý nhà xe',
-        complaints: 'Khiếu nại',
-        content: 'Quản lý nội dung',
-        reports: 'Báo cáo',
-      };
-      
-      items.push({
-        title: pageNames[pageName] || pageName,
-      });
-    }
-
-    return items;
+  const menu = {
+    items: [
+      { key: 'profile', label: 'Hồ sơ cá nhân', onClick: () => navigate('/admin/profile') },
+      { key: 'settings', label: 'Cài đặt hệ thống', onClick: () => navigate('/admin/settings') },
+      { type: 'divider' },
+      { key: 'logout', label: 'Đăng xuất', danger: true, onClick: handleLogout },
+    ],
   };
 
-  const menuItems = [
-    {
-      key: 'profile',
-      icon: <UserOutlined />,
-      label: 'Hồ sơ cá nhân',
-      onClick: () => navigate('/admin/profile'),
-    },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'Cài đặt hệ thống',
-      onClick: () => navigate('/admin/settings'),
-    },
-    {
-      type: 'divider',
-    },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: 'Đăng xuất',
-      onClick: handleLogout,
-      danger: true,
-    },
-  ];
+  const onSearch = (e) => {
+    if (e.key === 'Enter' && q.trim()) {
+      // Best-effort: route the query to the operators directory search.
+      navigate(`/admin/operators?q=${encodeURIComponent(q.trim())}`);
+    }
+  };
 
   return (
-    <header className="bg-white/95 backdrop-blur-md border-b border-neutral-200 px-6 py-4 shadow-sm sticky top-0 z-40">
-      <div className="flex items-center justify-between">
-        {/* Left Side - Breadcrumb */}
-        <div className="flex items-center space-x-4">
-          <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
-            <SafetyOutlined className="text-white text-lg" />
-          </div>
-          <div>
-            <Breadcrumb
-              items={getBreadcrumbItems()}
-              className="text-sm"
-            />
-            <Text className="text-xs text-neutral-500 block mt-1">
-              Quản trị hệ thống Vé xe nhanh
-            </Text>
-          </div>
-        </div>
+    <header style={{
+      height: 73, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)',
+      borderBottom: '1px solid var(--vxn-border)',
+      display: 'flex', alignItems: 'center', gap: 20, padding: '0 28px',
+      position: 'sticky', top: 0, zIndex: 10, boxSizing: 'border-box',
+    }}>
+      <div style={{ flex: 1, maxWidth: 380, position: 'relative' }}>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={onSearch}
+          placeholder="Tìm nhà xe, khách hàng, chuyến, giao dịch…"
+          style={{
+            width: '100%', height: 40, borderRadius: 8, background: 'var(--vxn-bg-mist)',
+            border: '1px solid transparent', padding: '0 16px 0 40px',
+            font: '400 13.5px var(--font-display)', color: 'var(--vxn-fg-2)',
+            outline: 'none', boxSizing: 'border-box',
+          }}
+        />
+        <span style={{ position: 'absolute', left: 14, top: 11, opacity: 0.5 }}>
+          <VxnIcon name="search" size={16} />
+        </span>
+      </div>
 
-        {/* Right Side Actions */}
-        <div className="flex items-center space-x-4">
-          {/* System Status */}
-          <div className="hidden lg:flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg border border-green-200">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <Text className="text-green-700 text-xs font-medium">
-              Hệ thống hoạt động bình thường
-            </Text>
-          </div>
-
-          {/* Notifications */}
-          <Badge count={3} size="small">
-            <Button
-              type="text"
-              icon={<BellOutlined className="text-lg" />}
-              className="hover:bg-neutral-100 w-10 h-10 rounded-lg flex items-center justify-center"
-            />
-          </Badge>
-
-          {/* Settings */}
-          <Button
-            type="text"
-            icon={<SettingOutlined className="text-lg" />}
-            onClick={() => navigate('/admin/settings')}
-            className="hover:bg-neutral-100 w-10 h-10 rounded-lg flex items-center justify-center"
-          />
-
-          {/* User Menu */}
-          <Dropdown 
-            menu={{ items: menuItems }} 
-            placement="bottomRight"
-            trigger={['click']}
-            overlayClassName="min-w-[200px]"
-          >
-            <Button
-              type="text"
-              className="flex items-center space-x-3 hover:bg-neutral-100 h-auto px-3 py-2 rounded-lg transition-all duration-200"
-            >
-              <Avatar
-                size={36}
-                icon={<UserOutlined />}
-                className="bg-gradient-to-br from-primary-500 to-red-600 shadow-md"
-              />
-              <div className="text-left hidden sm:block">
-                <div className="text-sm font-semibold text-neutral-800">
-                  {user?.fullName || user?.email || 'Administrator'}
-                </div>
-                <div className="text-xs text-neutral-500 flex items-center space-x-1">
-                  <SafetyOutlined className="text-xs" />
-                  <span>Super Admin</span>
-                </div>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <IconBtn icon="bell" title="Thông báo" />
+        <IconBtn icon="circle-help" title="Trợ giúp" />
+        <IconBtn icon="settings" title="Cài đặt" onClick={() => navigate('/admin/settings')} />
+        <div style={{ width: 1, height: 28, background: 'var(--vxn-border)', margin: '0 8px' }} />
+        <Dropdown menu={menu} placement="bottomRight" trigger={['click']}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px 0 8px', cursor: 'pointer' }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: '50%',
+              background: 'linear-gradient(135deg, var(--vxn-teal-700), var(--vxn-teal-900))',
+              display: 'grid', placeItems: 'center',
+              color: '#fff', font: '600 14px var(--font-display)',
+            }}>{initials}</div>
+            <div style={{ lineHeight: 1.2 }}>
+              <div style={{ font: '600 13.5px var(--font-display)', color: 'var(--vxn-ink)' }}>
+                {name}
               </div>
-            </Button>
-          </Dropdown>
-        </div>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                font: '500 11px var(--font-display)', color: 'var(--vxn-saffron-700)', marginTop: 2,
+              }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--vxn-saffron-600)' }} />
+                SUPER ADMIN
+              </div>
+            </div>
+          </div>
+        </Dropdown>
       </div>
     </header>
   );

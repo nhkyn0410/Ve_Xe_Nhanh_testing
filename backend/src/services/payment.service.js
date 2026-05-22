@@ -1,18 +1,28 @@
+const moment = require('moment');
+const logger = require('../utils/logger');
+
 const Payment = require('../models/Payment');
 const Booking = require('../models/Booking');
 const Trip = require('../models/Trip');
 const vnpayService = require('./vnpay.service');
 const SeatLockService = require('./seatLock.service');
-const moment = require('moment');
-const logger = require('../utils/logger');
 
 // Lazy-load TicketService to avoid circular dependency
 let TicketService = null;
 const getTicketService = () => {
   if (!TicketService) {
+    // eslint-disable-next-line global-require
     TicketService = require('./ticket.service');
   }
   return TicketService;
+};
+let VoucherService = null;
+const getVoucherService = () => {
+  if (!VoucherService) {
+    // eslint-disable-next-line global-require
+    VoucherService = require('./voucher.service');
+  }
+  return VoucherService;
 };
 
 /**
@@ -20,6 +30,24 @@ const getTicketService = () => {
  * Handles payment operations and integrates with payment gateways
  */
 class PaymentService {
+  static async dispatchTicketNotifications(bookingId, bookingCode) {
+    const TicketServiceClass = getTicketService();
+    try {
+      const ticket = await TicketServiceClass.generateTicket(bookingId);
+      logger.info('Vé được tạo/kiểm tra để gửi thông báo:', bookingCode);
+
+      const notificationResult = await TicketServiceClass.sendTicketNotifications(ticket._id);
+      logger.info('Đã gửi thông báo vé:', notificationResult);
+      return notificationResult;
+    } catch (error) {
+      logger.error('Tạo vé/thông báo không thành công:', error);
+      return {
+        email: { sent: false, error: error.message },
+        sms: { sent: false, error: error.message },
+      };
+    }
+  }
+
   /**
    * Create payment for a booking
    *
@@ -129,7 +157,8 @@ class PaymentService {
 
       // Add seats to trip's booked seats
       const seatNumbers = booking.seats.map((s) => s.seatNumber);
-      for (const seat of booking.seats) {
+      for (let i = 0; i < booking.seats.length; i += 1) {
+        const seat = booking.seats[i];
         trip.bookedSeats.push({
           seatNumber: seat.seatNumber,
           bookingId: booking._id,
@@ -142,8 +171,8 @@ class PaymentService {
       // Apply voucher if present
       if (booking.voucherId) {
         try {
-          const VoucherService = require('./voucher.service');
-          await VoucherService.applyToBooking(booking.voucherId);
+          const VoucherServiceClass = getVoucherService();
+          await VoucherServiceClass.applyToBooking(booking.voucherId, booking.customerId);
         } catch (error) {
           logger.error('Không thể áp dụng voucher:', error.message);
         }
@@ -165,24 +194,13 @@ class PaymentService {
         }
       }
 
-      // Generate digital ticket in background
-      const TicketServiceClass = getTicketService();
-      TicketServiceClass.generateTicket(booking._id)
-        .then((ticket) => {
-          logger.info('Vé được tạo để đặt vé bằng tiền mặt:', booking.bookingCode);
-          return TicketServiceClass.sendTicketNotifications(ticket._id);
-        })
-        .then((notificationResult) => {
-          logger.info('Đã gửi thông báo vé:', notificationResult);
-        })
-        .catch((error) => {
-          logger.error('Tạo vé không thành công:', error);
-        });
+      // Generate digital ticket and send notifications.
+      await this.dispatchTicketNotifications(booking._id, booking.bookingCode);
     }
 
     // Populate payment details
     await payment.populate('bookingId');
-    await payment.populate('operatorId', 'companyName email phone');
+    await payment.populate('operatorId', 'operatorName companyName email phone');
 
     return {
       payment,
@@ -197,7 +215,7 @@ class PaymentService {
    * @param {string} ipAddress - Client IP address
    * @returns {Object} Processing result
    */
-  static async processVNPayCallback(vnpParams, ipAddress) {
+  static async processVNPayCallback(vnpParams) {
     logger.info('VNPay callback đã nhận:', vnpParams);
 
     // Process callback with VNPay service
@@ -230,6 +248,13 @@ class PaymentService {
 
     // Check if payment already processed
     if (payment.status === 'completed') {
+      const processedBooking = payment.bookingId;
+      if (processedBooking?._id) {
+        // Idempotent safety: generateTicket returns existing ticket and sendTicketNotifications
+        // skips channels already marked sent.
+        await this.dispatchTicketNotifications(processedBooking._id, processedBooking.bookingCode);
+      }
+
       return {
         success: true,
         message: 'Thanh toán đã được xử lý trước đó',
@@ -290,7 +315,8 @@ class PaymentService {
             // Add seats to trip's booked seats
             const seatNumbers = booking.seats.map((s) => s.seatNumber);
 
-            for (const seat of booking.seats) {
+            for (let i = 0; i < booking.seats.length; i += 1) {
+              const seat = booking.seats[i];
               // Only add if not already booked
               const alreadyBooked = trip.bookedSeats.some(
                 (bookedSeat) => bookedSeat.seatNumber === seat.seatNumber
@@ -329,25 +355,24 @@ class PaymentService {
           booking.confirm();
         }
 
+        // Apply voucher after the payment is successfully captured. This is
+        // intentionally inside the non-idempotent branch guarded by
+        // payment.status !== completed above.
+        if (booking.voucherId) {
+          try {
+            const VoucherServiceClass = getVoucherService();
+            await VoucherServiceClass.applyToBooking(booking.voucherId, booking.customerId);
+          } catch (error) {
+            logger.error('Không thể áp dụng voucher:', error.message);
+          }
+        }
+
         await booking.save();
         logger.info('Đặt chỗ được cập nhật thành công');
 
-        // Generate digital ticket in background (UC-7)
-        const TicketServiceClass = getTicketService();
-        TicketServiceClass.generateTicket(booking._id)
-          .then((ticket) => {
-            logger.info('Vé được tạo để đặt chỗ:', booking.bookingCode);
-            // Send ticket notifications in background
-            return TicketServiceClass.sendTicketNotifications(ticket._id);
-          })
-          .then((notificationResult) => {
-            logger.info('Đã gửi thông báo vé:', notificationResult);
-          })
-          .catch((error) => {
-            logger.error('Tạo vé/thông báo không thành công:', error);
-            // Don't fail the payment if ticket generation fails
-            // Admin can retry ticket generation manually
-          });
+        // Generate digital ticket and send notifications (UC-7).
+        // Don't fail the payment if ticket generation/notification fails; resend can retry.
+        await this.dispatchTicketNotifications(booking._id, booking.bookingCode);
       }
 
       logger.info('VNPay callback xử lý thành công!');
@@ -376,7 +401,7 @@ class PaymentService {
     const payment = await Payment.findById(paymentId)
       .populate('bookingId')
       .populate('customerId', 'fullName email phone')
-      .populate('operatorId', 'companyName email phone');
+      .populate('operatorId', 'operatorName companyName email phone');
 
     if (!payment) {
       throw new Error('Không tìm thấy thanh toán');
@@ -395,7 +420,7 @@ class PaymentService {
     const payment = await Payment.findOne({ paymentCode })
       .populate('bookingId')
       .populate('customerId', 'fullName email phone')
-      .populate('operatorId', 'companyName email phone');
+      .populate('operatorId', 'operatorName companyName email phone');
 
     if (!payment) {
       throw new Error('Không tìm thấy thanh toán');
@@ -545,48 +570,40 @@ class PaymentService {
       };
     }
 
-    const results = [];
-
-    for (const payment of payments) {
+    const results = await Promise.all(payments.map(async (payment) => {
       try {
-        // Calculate refund amount
         let refundAmount;
         if (specificRefundAmount !== null && specificRefundAmount >= 0) {
-          // Use specific refund amount from cancellation policy
           refundAmount = Math.min(specificRefundAmount, payment.amount - (payment.refundAmount || 0));
         } else {
-          // Full refund (legacy behavior)
           refundAmount = payment.amount - (payment.refundAmount || 0);
         }
 
         if (refundAmount > 0) {
-          const result = await this.processRefund({
+          return this.processRefund({
             paymentId: payment._id,
             amount: refundAmount,
             reason: `Hoàn tiền tự động do hủy booking: ${reason}`,
             ipAddress,
             user: 'system',
           });
-
-          results.push(result);
-        } else if (refundAmount === 0) {
-          // No refund according to policy
-          results.push({
-            success: true,
-            paymentId: payment._id,
-            message: 'Không hoàn tiền theo chính sách hủy vé',
-            refundAmount: 0,
-          });
         }
+
+        return {
+          success: true,
+          paymentId: payment._id,
+          message: 'Không hoàn tiền theo chính sách hủy vé',
+          refundAmount: 0,
+        };
       } catch (error) {
         logger.error('Auto-refund failed for payment:', payment._id, error.message);
-        results.push({
+        return {
           success: false,
           paymentId: payment._id,
           error: error.message,
-        });
+        };
       }
-    }
+    }));
 
     return {
       success: results.some((r) => r.success),
@@ -601,9 +618,7 @@ class PaymentService {
   static async handleExpiredPayments() {
     const expiredPayments = await Payment.findExpiredPending();
 
-    const results = [];
-
-    for (const payment of expiredPayments) {
+    const results = await Promise.all(expiredPayments.map(async (payment) => {
       try {
         payment.markAsFailed('Thanh toán hết hạn', 'EXPIRED');
         await payment.save();
@@ -615,19 +630,12 @@ class PaymentService {
           await booking.save();
         }
 
-        results.push({
-          success: true,
-          paymentId: payment._id,
-        });
+        return { success: true, paymentId: payment._id };
       } catch (error) {
         logger.error('Failed to handle expired payment:', payment._id, error.message);
-        results.push({
-          success: false,
-          paymentId: payment._id,
-          error: error.message,
-        });
+        return { success: false, paymentId: payment._id, error: error.message };
       }
-    }
+    }));
 
     return {
       total: expiredPayments.length,

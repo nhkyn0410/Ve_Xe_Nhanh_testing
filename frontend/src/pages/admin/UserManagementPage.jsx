@@ -1,655 +1,814 @@
-import { useState, useEffect } from 'react';
-import {
-  Table,
-  Card,
-  Input,
-  Select,
-  Button,
-  Tag,
-  Space,
-  Modal,
-  Form,
-  message,
-  Tooltip,
-  Descriptions,
-  Statistic,
-  Row,
-  Col,
-  Spin,
-  Alert,
-} from 'antd';
-import {
-  SearchOutlined,
-  EyeOutlined,
-  LockOutlined,
-  UnlockOutlined,
-  KeyOutlined,
-  ReloadOutlined,
-  UserOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-} from '@ant-design/icons';
-import { adminUsers } from '../../services/adminApi';
+/**
+ * Quản lý khách hàng — System-admin portal.
+ *
+ * Faithful port of the design package's `admin-customers.jsx` view, wired
+ * to REAL backend data (`/admin/users` + `/admin/users/statistics`) instead
+ * of the design's hard-coded `CUSTOMERS` sample array.
+ *
+ * Honesty-over-pixel-match substitutions (design → truthful equivalent):
+ *  • Tier-strip counts come from the real `usersByTier` aggregation; the
+ *    threshold/benefit sub-labels are kept verbatim because they exactly
+ *    match the real `User.updateLoyaltyTier` / `getTierBenefits` rules
+ *    (≥10k→platinum 15%, ≥5k→gold 10%, ≥2k→silver 5%, 0+→bronze).
+ *  • Column "Điểm ≈ đ" → just real `totalPoints`. There is no
+ *    point→VND conversion rate in the system, so the "≈ đ" was fabricated.
+ *  • Column "Chuyến gần nhất" → "Hoạt động gần nhất" (real `lastLogin`).
+ *    Per-user last-trip date is not on the user list payload.
+ *  • Header CTA "Tặng điểm thủ công / Gửi email hàng loạt" → "Làm mới".
+ *    No manual-points or bulk-email endpoint exists.
+ *  • "Xuất Excel" dropped (no export endpoint). A real Role filter is
+ *    added so this remains the full user manager it is in the backend.
+ *
+ * Page chrome uses the VXN design system; AntD is retained only for
+ * modals / forms / toasts (proven operator-portal redesign convention).
+ */
+import { useState, useEffect, useCallback } from 'react';
+import { Modal, Form, Input, message, Tag } from 'antd';
 import dayjs from 'dayjs';
+import { adminUsers } from '../../services/adminApi';
+import {
+  PageHeader,
+  Btn,
+  Chip,
+  Card,
+  SearchInput,
+  Select,
+  Table,
+  Pager,
+  VxnIcon,
+  MoneyVND,
+  Skeleton,
+} from '../../components/admin/vxn';
 
-const { Search } = Input;
-const { Option } = Select;
+const PAGE_SIZE = 20;
+
+const TIER = {
+  bronze: { label: 'Bronze', bg: '#F1E4D3', fg: '#7A4F1B', solid: '#A86D3A' },
+  silver: { label: 'Silver', bg: '#E5E7EB', fg: '#374151', solid: '#9CA3AF' },
+  gold: { label: 'Gold', bg: '#FEF3C7', fg: '#92400E', solid: '#D97706' },
+  platinum: { label: 'Platinum', bg: '#E0F2FE', fg: '#075985', solid: '#0EA5E9' },
+};
+
+const TIER_SUB = {
+  platinum: '≥ 10.000 điểm · ưu đãi 15%',
+  gold: '≥ 5.000 điểm · ưu đãi 10%',
+  silver: '≥ 2.000 điểm · ưu đãi 5%',
+  bronze: '0+ điểm · không ưu đãi',
+};
+
+const STATUS_TONE = {
+  active: { tone: 'success', label: 'Đang hoạt động' },
+  inactive: { tone: 'neutral', label: 'Chưa kích hoạt' },
+  blocked: { tone: 'danger', label: 'Bị khóa' },
+};
+
+const ROLE_OPTS = [
+  { value: 'customer', label: 'Khách hàng' },
+  { value: 'operator', label: 'Nhà xe' },
+  { value: 'trip_manager', label: 'Quản lý chuyến' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'all', label: 'Tất cả vai trò' },
+];
+
+const TIER_OPTS = [
+  { value: 'all', label: 'Tất cả hạng' },
+  { value: 'platinum', label: 'Platinum' },
+  { value: 'gold', label: 'Gold' },
+  { value: 'silver', label: 'Silver' },
+  { value: 'bronze', label: 'Bronze' },
+];
+
+const STATUS_OPTS = [
+  { value: 'all', label: 'Mọi trạng thái' },
+  { value: 'active', label: 'Hoạt động' },
+  { value: 'inactive', label: 'Chưa kích hoạt' },
+  { value: 'blocked', label: 'Bị khóa' },
+];
+
+function statusOf(u) {
+  if (u.isBlocked) return 'blocked';
+  if (!u.isActive) return 'inactive';
+  return 'active';
+}
+
+function statusParams(s) {
+  switch (s) {
+    case 'active':
+      return { isActive: 'true', isBlocked: 'false' };
+    case 'inactive':
+      return { isActive: 'false' };
+    case 'blocked':
+      return { isBlocked: 'true' };
+    default:
+      return {};
+  }
+}
+
+function initials(name = 'KH') {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(-2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+}
+
+function TierCard({ tier, count }) {
+  const t = TIER[tier];
+  return (
+    <div
+      style={{
+        background: '#fff',
+        border: '1px solid var(--vxn-border)',
+        borderRadius: 12,
+        padding: 20,
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: 90,
+          height: 90,
+          background: t.bg,
+          borderRadius: '50%',
+          transform: 'translate(30%, -30%)',
+          opacity: 0.6,
+        }}
+      />
+      <div style={{ position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: t.solid }} />
+          <div
+            style={{
+              font: '600 11.5px var(--font-display)',
+              letterSpacing: '0.1em',
+              color: t.fg,
+              textTransform: 'uppercase',
+            }}
+          >
+            {t.label}
+          </div>
+        </div>
+        <div
+          style={{
+            font: '600 28px var(--font-display)',
+            color: 'var(--vxn-ink)',
+            marginTop: 12,
+            letterSpacing: '-0.02em',
+          }}
+        >
+          {count == null ? <Skeleton width={64} height={26} /> : Number(count).toLocaleString('vi-VN')}
+        </div>
+        <div style={{ font: '400 12px var(--font-display)', color: 'var(--vxn-fg-4)', marginTop: 4 }}>
+          {TIER_SUB[tier]}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CustomerCell({ u }) {
+  const t = TIER[u.loyaltyTier] || TIER.bronze;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 180 }}>
+      {u.avatar ? (
+        <img
+          src={u.avatar}
+          alt={u.fullName}
+          style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+        />
+      ) : (
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: '50%',
+            background: t.solid,
+            color: '#fff',
+            display: 'grid',
+            placeItems: 'center',
+            font: '600 13px var(--font-display)',
+            flexShrink: 0,
+          }}
+        >
+          {initials(u.fullName || u.email)}
+        </div>
+      )}
+      <div style={{ minWidth: 0 }}>
+        <div style={{ font: '600 14px var(--font-display)', color: 'var(--vxn-ink)' }}>
+          {u.fullName || 'Chưa đặt tên'}
+        </div>
+        <div
+          style={{
+            font: '400 11.5px ui-monospace, monospace',
+            color: 'var(--vxn-fg-5)',
+            marginTop: 2,
+          }}
+        >
+          #{String(u._id).slice(-8).toUpperCase()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TierBadge({ tier }) {
+  const t = TIER[tier] || TIER.bronze;
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '4px 10px',
+        borderRadius: 999,
+        background: t.bg,
+        color: t.fg,
+        font: '600 11.5px var(--font-display)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.06em',
+      }}
+    >
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: t.solid }} />
+      {t.label}
+    </span>
+  );
+}
+
+const iconActStyle = {
+  width: 32,
+  height: 32,
+  borderRadius: 6,
+  border: 0,
+  background: 'transparent',
+  cursor: 'pointer',
+  display: 'grid',
+  placeItems: 'center',
+  color: 'var(--vxn-fg-4)',
+};
 
 const UserManagementPage = () => {
   const [loading, setLoading] = useState(false);
-  const [users, setUsers] = useState([]);
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 20,
-    total: 0,
-  });
-  const [filters, setFilters] = useState({
-    role: undefined,
-    isBlocked: undefined,
-    isActive: undefined,
-    search: '',
-  });
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState(null);
 
-  // Modals
-  const [detailModalVisible, setDetailModalVisible] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [userDetails, setUserDetails] = useState(null);
-  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [role, setRole] = useState('customer');
+  const [tier, setTier] = useState('all');
+  const [status, setStatus] = useState('all');
+  const [q, setQ] = useState('');
+  const [qd, setQd] = useState('');
+  const [page, setPage] = useState(1);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const [blockModalVisible, setBlockModalVisible] = useState(false);
+  // Detail
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // Block / reset-password
+  const [blockUser, setBlockUser] = useState(null);
   const [blockForm] = Form.useForm();
   const [blockLoading, setBlockLoading] = useState(false);
 
-  const [resetPasswordModalVisible, setResetPasswordModalVisible] = useState(false);
-  const [resetPasswordForm] = Form.useForm();
-  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const [pwUser, setPwUser] = useState(null);
+  const [pwForm] = Form.useForm();
+  const [pwLoading, setPwLoading] = useState(false);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await adminUsers.getStatistics();
+      if (res?.data) setStats(res.data);
+    } catch {
+      /* non-fatal */
+    }
+  }, []);
 
   useEffect(() => {
-    fetchUsers();
-  }, [pagination.current, pagination.pageSize, filters]);
+    fetchStats();
+  }, [fetchStats, reloadKey]);
 
-  const fetchUsers = async () => {
-    try {
+  useEffect(() => {
+    const t = setTimeout(() => setQd(q), 350);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [role, tier, status, qd]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
       setLoading(true);
-      const params = {
-        page: pagination.current,
-        limit: pagination.pageSize,
-        ...filters,
-      };
-
-      const response = await adminUsers.getUsers(params);
-
-      if (response.success) {
-        setUsers(response.data.users);
-        setPagination({
-          ...pagination,
-          total: response.data.pagination.total,
-        });
+      try {
+        const params = {
+          page,
+          limit: PAGE_SIZE,
+          sortBy: 'createdAt',
+          sortOrder: 'desc',
+          ...statusParams(status),
+        };
+        if (role !== 'all') params.role = role;
+        if (tier !== 'all') params.loyaltyTier = tier;
+        if (qd.trim()) params.search = qd.trim();
+        const res = await adminUsers.getUsers(params);
+        if (alive && res.success) {
+          setRows(res.data.users || []);
+          setTotal(res.data.pagination?.total || 0);
+        }
+      } catch (e) {
+        if (alive) message.error(typeof e === 'string' ? e : 'Không thể tải danh sách người dùng');
+      } finally {
+        if (alive) setLoading(false);
       }
-    } catch (error) {
-      message.error(error || 'Không thể tải danh sách người dùng');
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [page, role, tier, status, qd, reloadKey]);
+
+  const refresh = () => setReloadKey((k) => k + 1);
+
+  const openDetail = async (u) => {
+    setDetailOpen(true);
+    setDetail(null);
+    setDetailLoading(true);
+    try {
+      const res = await adminUsers.getUserById(u._id);
+      if (res.success) setDetail(res.data);
+    } catch (e) {
+      message.error(typeof e === 'string' ? e : 'Không thể tải thông tin chi tiết');
+      setDetailOpen(false);
     } finally {
-      setLoading(false);
+      setDetailLoading(false);
     }
   };
 
-  const handleTableChange = (newPagination) => {
-    setPagination({
-      ...pagination,
-      current: newPagination.current,
-      pageSize: newPagination.pageSize,
-    });
-  };
-
-  const handleFilterChange = (key, value) => {
-    setFilters({
-      ...filters,
-      [key]: value,
-    });
-    setPagination({
-      ...pagination,
-      current: 1, // Reset to first page
-    });
-  };
-
-  const handleSearch = (value) => {
-    handleFilterChange('search', value);
-  };
-
-  const handleViewDetails = async (user) => {
-    setSelectedUser(user);
-    setDetailModalVisible(true);
-    setLoadingDetails(true);
-
+  const submitBlock = async (values) => {
+    setBlockLoading(true);
     try {
-      const response = await adminUsers.getUserById(user._id);
-      if (response.success) {
-        setUserDetails(response.data);
+      const res = await adminUsers.blockUser(blockUser._id, values.reason);
+      if (res.success) {
+        message.success('Đã khóa tài khoản');
+        setBlockUser(null);
+        refresh();
       }
-    } catch (error) {
-      message.error('Không thể tải thông tin chi tiết');
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
-
-  const handleBlockUser = (user) => {
-    setSelectedUser(user);
-    blockForm.resetFields();
-    setBlockModalVisible(true);
-  };
-
-  const handleBlockSubmit = async (values) => {
-    try {
-      setBlockLoading(true);
-      const response = await adminUsers.blockUser(selectedUser._id, values.reason);
-
-      if (response.success) {
-        message.success('Đã khóa tài khoản người dùng');
-        setBlockModalVisible(false);
-        fetchUsers();
-      }
-    } catch (error) {
-      message.error(error || 'Không thể khóa tài khoản');
+    } catch (e) {
+      message.error(typeof e === 'string' ? e : 'Không thể khóa tài khoản');
     } finally {
       setBlockLoading(false);
     }
   };
 
-  const handleUnblockUser = async (user) => {
+  const doUnblock = (u) => {
     Modal.confirm({
-      title: 'Xác nhận mở khóa',
-      content: `Bạn có chắc muốn mở khóa tài khoản "${user.fullName || user.email}"?`,
+      title: 'Mở khóa tài khoản',
+      content: `Xác nhận mở khóa tài khoản "${u.fullName || u.email}"?`,
       okText: 'Mở khóa',
       cancelText: 'Hủy',
       onOk: async () => {
         try {
-          const response = await adminUsers.unblockUser(user._id);
-          if (response.success) {
+          const res = await adminUsers.unblockUser(u._id);
+          if (res.success) {
             message.success('Đã mở khóa tài khoản');
-            fetchUsers();
+            refresh();
           }
-        } catch (error) {
-          message.error(error || 'Không thể mở khóa tài khoản');
+        } catch (e) {
+          message.error(typeof e === 'string' ? e : 'Không thể mở khóa tài khoản');
         }
       },
     });
   };
 
-  const handleResetPassword = (user) => {
-    setSelectedUser(user);
-    resetPasswordForm.resetFields();
-    setResetPasswordModalVisible(true);
-  };
-
-  const handleResetPasswordSubmit = async (values) => {
+  const submitPw = async (values) => {
+    setPwLoading(true);
     try {
-      setResetPasswordLoading(true);
-      const response = await adminUsers.resetPassword(
-        selectedUser._id,
-        values.newPassword
-      );
-
-      if (response.success) {
-        message.success('Đã đặt lại mật khẩu cho người dùng');
-        setResetPasswordModalVisible(false);
-        resetPasswordForm.resetFields();
+      const res = await adminUsers.resetPassword(pwUser._id, values.newPassword);
+      if (res.success) {
+        message.success('Đã đặt lại mật khẩu');
+        setPwUser(null);
       }
-    } catch (error) {
-      message.error(error || 'Không thể đặt lại mật khẩu');
+    } catch (e) {
+      message.error(typeof e === 'string' ? e : 'Không thể đặt lại mật khẩu');
     } finally {
-      setResetPasswordLoading(false);
+      setPwLoading(false);
     }
   };
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-    }).format(value);
-  };
-
   const columns = [
+    { key: 'cu', label: 'Khách hàng', render: (u) => <CustomerCell u={u} /> },
     {
-      title: 'Người Dùng',
-      key: 'user',
-      fixed: 'left',
-      width: 250,
-      render: (_, record) => (
+      key: 'contact',
+      label: 'Liên hệ',
+      render: (u) => (
         <div>
-          <div className="font-semibold text-gray-800">
-            {record.fullName || 'N/A'}
+          <div style={{ font: '400 13px var(--font-display)', color: 'var(--vxn-fg-2)' }}>
+            {u.email}
           </div>
-          <div className="text-sm text-gray-500">{record.email}</div>
-          {record.phone && (
-            <div className="text-xs text-gray-400">{record.phone}</div>
-          )}
+          <div
+            style={{ font: '400 12px var(--font-display)', color: 'var(--vxn-fg-5)', marginTop: 2 }}
+          >
+            {u.phone || '—'}
+            {u.address?.city ? ` · ${u.address.city}` : ''}
+          </div>
+        </div>
+      ),
+    },
+    { key: 'tier', label: 'Hạng', render: (u) => <TierBadge tier={u.loyaltyTier} /> },
+    {
+      key: 'points',
+      label: 'Điểm',
+      align: 'right',
+      render: (u) => (
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ font: '600 14px var(--font-display)', color: 'var(--vxn-ink)' }}>
+            {Number(u.totalPoints || 0).toLocaleString('vi-VN')}
+          </div>
+          <div
+            style={{ font: '400 11.5px var(--font-display)', color: 'var(--vxn-fg-5)', marginTop: 2 }}
+          >
+            điểm tích lũy
+          </div>
         </div>
       ),
     },
     {
-      title: 'Vai Trò',
-      dataIndex: 'role',
-      key: 'role',
-      width: 100,
-      render: (role) => {
-        const roleColors = {
-          customer: 'blue',
-          operator: 'purple',
-          trip_manager: 'orange',
-          admin: 'red',
-        };
-        const roleLabels = {
-          customer: 'Khách',
-          operator: 'Nhà xe',
-          trip_manager: 'Quản lý',
-          admin: 'Admin',
-        };
+      key: 'bookings',
+      label: 'Đặt vé · Chi tiêu',
+      align: 'right',
+      render: (u) => (
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ font: '500 13.5px var(--font-display)', color: 'var(--vxn-ink)' }}>
+            {Number(u.totalBookings || 0).toLocaleString('vi-VN')} vé
+          </div>
+          <div
+            style={{ font: '400 11.5px var(--font-display)', color: 'var(--vxn-fg-5)', marginTop: 2 }}
+          >
+            {MoneyVND(u.totalSpent || 0)}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'last',
+      label: 'Hoạt động gần nhất',
+      render: (u) => (
+        <div style={{ color: 'var(--vxn-fg-3)', font: '400 13px var(--font-display)' }}>
+          {u.lastLogin ? dayjs(u.lastLogin).format('DD/MM/YYYY HH:mm') : 'Chưa đăng nhập'}
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Trạng thái',
+      render: (u) => {
+        const s = STATUS_TONE[statusOf(u)];
         return (
-          <Tag color={roleColors[role] || 'default'}>
-            {roleLabels[role] || role}
-          </Tag>
+          <Chip tone={s.tone} dot>
+            {s.label}
+          </Chip>
         );
       },
     },
     {
-      title: 'Trạng Thái',
-      key: 'status',
-      width: 120,
-      render: (_, record) => (
-        <Space direction="vertical" size={4}>
-          {record.isBlocked ? (
-            <Tag color="red" icon={<CloseCircleOutlined />}>
-              Đã khóa
-            </Tag>
-          ) : (
-            <Tag color="green" icon={<CheckCircleOutlined />}>
-              Hoạt động
-            </Tag>
-          )}
-          {!record.isActive && (
-            <Tag color="orange">Chưa kích hoạt</Tag>
-          )}
-        </Space>
-      ),
-    },
-    {
-      title: 'Đặt Vé',
-      dataIndex: 'totalBookings',
-      key: 'totalBookings',
-      width: 100,
-      align: 'center',
-      render: (total) => (
-        <span className="font-semibold text-blue-600">{total || 0}</span>
-      ),
-    },
-    {
-      title: 'Tổng Chi Tiêu',
-      dataIndex: 'totalSpent',
-      key: 'totalSpent',
-      width: 150,
-      align: 'right',
-      render: (amount) => (
-        <span className="font-semibold text-green-600">
-          {formatCurrency(amount || 0)}
-        </span>
-      ),
-    },
-    {
-      title: 'Ngày Đăng Ký',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      width: 120,
-      render: (date) => dayjs(date).format('DD/MM/YYYY'),
-    },
-    {
-      title: 'Hành Động',
       key: 'actions',
-      fixed: 'right',
-      width: 180,
-      render: (_, record) => (
-        <Space>
-          <Tooltip title="Xem chi tiết">
-            <Button
-              type="text"
-              icon={<EyeOutlined />}
-              onClick={() => handleViewDetails(record)}
-            />
-          </Tooltip>
-          {record.isBlocked ? (
-            <Tooltip title="Mở khóa">
-              <Button
-                type="text"
-                icon={<UnlockOutlined />}
-                onClick={() => handleUnblockUser(record)}
-                className="text-green-600 hover:text-green-700"
-              />
-            </Tooltip>
+      label: '',
+      align: 'right',
+      render: (u) => (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+          <button title="Xem chi tiết" style={iconActStyle} onClick={() => openDetail(u)}>
+            <VxnIcon name="eye" size={16} />
+          </button>
+          {u.isBlocked ? (
+            <button
+              title="Mở khóa"
+              style={{ ...iconActStyle, color: '#15803D' }}
+              onClick={() => doUnblock(u)}
+            >
+              <VxnIcon name="lock-open" size={16} />
+            </button>
           ) : (
-            <Tooltip title="Khóa tài khoản">
-              <Button
-                type="text"
-                icon={<LockOutlined />}
-                onClick={() => handleBlockUser(record)}
-                danger
-              />
-            </Tooltip>
+            <button
+              title="Khóa tài khoản"
+              style={{ ...iconActStyle, color: '#B91C1C' }}
+              onClick={() => {
+                blockForm.resetFields();
+                setBlockUser(u);
+              }}
+            >
+              <VxnIcon name="lock" size={16} />
+            </button>
           )}
-          <Tooltip title="Reset mật khẩu">
-            <Button
-              type="text"
-              icon={<KeyOutlined />}
-              onClick={() => handleResetPassword(record)}
-            />
-          </Tooltip>
-        </Space>
+          <button
+            title="Đặt lại mật khẩu"
+            style={iconActStyle}
+            onClick={() => {
+              pwForm.resetFields();
+              setPwUser(u);
+            }}
+          >
+            <VxnIcon name="key-round" size={16} />
+          </button>
+        </div>
       ),
     },
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">Quản Lý Người Dùng</h1>
-          <p className="text-gray-600 mt-1">
-            Quản lý tài khoản và quyền truy cập của người dùng
-          </p>
-        </div>
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={fetchUsers}
-          loading={loading}
-        >
-          Làm mới
-        </Button>
+    <div>
+      <PageHeader
+        title="Quản lý khách hàng"
+        description="Khách hàng đang sử dụng nền tảng, phân hạng thành viên (loyalty tiers) và lịch sử điểm tích lũy."
+        cta={
+          <Btn kind="ghost" icon="refresh-cw" onClick={refresh}>
+            Làm mới
+          </Btn>
+        }
+      />
+
+      <div
+        className="admin-grid"
+        style={{ marginBottom: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}
+      >
+        <TierCard tier="platinum" count={stats?.usersByTier?.platinum ?? null} />
+        <TierCard tier="gold" count={stats?.usersByTier?.gold ?? null} />
+        <TierCard tier="silver" count={stats?.usersByTier?.silver ?? null} />
+        <TierCard tier="bronze" count={stats?.usersByTier?.bronze ?? null} />
       </div>
 
-      {/* Filters */}
-      <Card>
-        <Space wrap className="w-full">
-          <Search
-            placeholder="Tìm theo email, tên, SĐT..."
-            allowClear
-            onSearch={handleSearch}
-            style={{ width: 300 }}
-            enterButton={<SearchOutlined />}
-          />
-          <Select
-            placeholder="Vai trò"
-            allowClear
-            style={{ width: 150 }}
-            onChange={(value) => handleFilterChange('role', value)}
-            value={filters.role}
-          >
-            <Option value="customer">Khách hàng</Option>
-            <Option value="operator">Nhà xe</Option>
-            <Option value="trip_manager">Quản lý chuyến</Option>
-            <Option value="admin">Admin</Option>
-          </Select>
-          <Select
-            placeholder="Trạng thái khóa"
-            allowClear
-            style={{ width: 150 }}
-            onChange={(value) => handleFilterChange('isBlocked', value)}
-            value={filters.isBlocked}
-          >
-            <Option value="true">Đã khóa</Option>
-            <Option value="false">Hoạt động</Option>
-          </Select>
-          <Select
-            placeholder="Trạng thái kích hoạt"
-            allowClear
-            style={{ width: 180 }}
-            onChange={(value) => handleFilterChange('isActive', value)}
-            value={filters.isActive}
-          >
-            <Option value="true">Đã kích hoạt</Option>
-            <Option value="false">Chưa kích hoạt</Option>
-          </Select>
-        </Space>
-      </Card>
+      <Card padding={0}>
+        <div
+          style={{
+            padding: '16px 20px',
+            borderBottom: '1px solid var(--vxn-border-muted)',
+            display: 'flex',
+            gap: 10,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+          }}
+        >
+          <SearchInput value={q} onChange={setQ} placeholder="Tìm theo tên, email, SĐT…" />
+          <Select value={role} onChange={setRole} options={ROLE_OPTS} />
+          <Select value={tier} onChange={setTier} options={TIER_OPTS} />
+          <Select value={status} onChange={setStatus} options={STATUS_OPTS} />
+          <div style={{ flex: 1 }} />
+          <Btn kind="ghost" icon="refresh-cw" onClick={refresh}>
+            Làm mới
+          </Btn>
+        </div>
 
-      {/* Table */}
-      <Card>
         <Table
           columns={columns}
-          dataSource={users}
-          rowKey="_id"
-          loading={loading}
-          pagination={pagination}
-          onChange={handleTableChange}
-          scroll={{ x: 1200 }}
+          rows={rows}
+          empty={loading ? 'Đang tải danh sách…' : 'Không có người dùng nào khớp bộ lọc.'}
         />
+        <Pager total={total} page={page} pageSize={PAGE_SIZE} onChange={setPage} />
       </Card>
 
-      {/* User Detail Modal */}
+      {/* Detail modal */}
       <Modal
-        title={
-          <div className="flex items-center space-x-2">
-            <UserOutlined className="text-blue-600" />
-            <span>Chi Tiết Người Dùng</span>
-          </div>
-        }
-        open={detailModalVisible}
-        onCancel={() => setDetailModalVisible(false)}
+        title="Chi tiết người dùng"
+        open={detailOpen}
+        onCancel={() => setDetailOpen(false)}
         footer={null}
-        width={800}
+        width={760}
       >
-        {loadingDetails ? (
-          <div className="flex justify-center py-8">
-            <Spin size="large" />
+        {detailLoading || !detail ? (
+          <div style={{ padding: '24px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Skeleton height={20} width="40%" />
+            <Skeleton height={14} />
+            <Skeleton height={14} width="80%" />
           </div>
-        ) : userDetails ? (
-          <div className="space-y-6">
-            {/* User Info */}
-            <Descriptions bordered column={2}>
-              <Descriptions.Item label="Họ Tên" span={2}>
-                {userDetails.user.fullName || 'N/A'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Email">
-                {userDetails.user.email}
-              </Descriptions.Item>
-              <Descriptions.Item label="Số Điện Thoại">
-                {userDetails.user.phone || 'N/A'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Vai Trò">
-                <Tag color="blue">{userDetails.user.role}</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="Trạng Thái">
-                {userDetails.user.isBlocked ? (
-                  <Tag color="red">Đã khóa</Tag>
-                ) : (
-                  <Tag color="green">Hoạt động</Tag>
-                )}
-              </Descriptions.Item>
-              <Descriptions.Item label="Ngày Đăng Ký" span={2}>
-                {dayjs(userDetails.user.createdAt).format('DD/MM/YYYY HH:mm')}
-              </Descriptions.Item>
-              {userDetails.user.isBlocked && (
-                <>
-                  <Descriptions.Item label="Lý Do Khóa" span={2}>
-                    <Alert
-                      message={userDetails.user.blockedReason}
-                      type="error"
-                      showIcon
-                    />
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Ngày Khóa" span={2}>
-                    {dayjs(userDetails.user.blockedAt).format('DD/MM/YYYY HH:mm')}
-                  </Descriptions.Item>
-                </>
-              )}
-            </Descriptions>
-
-            {/* Booking Statistics */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Thống Kê Đặt Vé</h3>
-              <Row gutter={16}>
-                <Col span={6}>
-                  <Card>
-                    <Statistic
-                      title="Tổng Đặt Vé"
-                      value={userDetails.stats.totalBookings}
-                      valueStyle={{ color: '#1890ff' }}
-                    />
-                  </Card>
-                </Col>
-                <Col span={6}>
-                  <Card>
-                    <Statistic
-                      title="Đã Thanh Toán"
-                      value={userDetails.stats.paidBookings}
-                      valueStyle={{ color: '#52c41a' }}
-                    />
-                  </Card>
-                </Col>
-                <Col span={6}>
-                  <Card>
-                    <Statistic
-                      title="Đã Hủy"
-                      value={userDetails.stats.cancelledBookings}
-                      valueStyle={{ color: '#f5222d' }}
-                    />
-                  </Card>
-                </Col>
-                <Col span={6}>
-                  <Card>
-                    <Statistic
-                      title="Tổng Chi Tiêu"
-                      value={userDetails.stats.totalSpent}
-                      formatter={(value) => formatCurrency(value)}
-                      valueStyle={{ color: '#722ed1' }}
-                    />
-                  </Card>
-                </Col>
-              </Row>
-            </div>
-
-            {/* Recent Bookings */}
-            {userDetails.recentBookings && userDetails.recentBookings.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Đặt Vé Gần Đây</h3>
-                <Table
-                  dataSource={userDetails.recentBookings}
-                  rowKey="_id"
-                  pagination={false}
-                  size="small"
-                  columns={[
-                    {
-                      title: 'Mã Đặt Vé',
-                      dataIndex: 'bookingCode',
-                      key: 'bookingCode',
-                    },
-                    {
-                      title: 'Tuyến',
-                      key: 'route',
-                      render: (_, record) =>
-                        record.tripId?.routeId?.routeName || 'N/A',
-                    },
-                    {
-                      title: 'Số Ghế',
-                      dataIndex: 'seats',
-                      key: 'seats',
-                      render: (seats) => seats?.length || 0,
-                    },
-                    {
-                      title: 'Tổng Tiền',
-                      dataIndex: 'finalPrice',
-                      key: 'finalPrice',
-                      render: (price) => formatCurrency(price),
-                    },
-                    {
-                      title: 'Trạng Thái',
-                      dataIndex: 'paymentStatus',
-                      key: 'paymentStatus',
-                      render: (status) => {
-                        const colors = {
-                          paid: 'green',
-                          pending: 'orange',
-                          cancelled: 'red',
-                          refunded: 'purple',
-                        };
-                        return <Tag color={colors[status]}>{status}</Tag>;
-                      },
-                    },
-                  ]}
-                />
-              </div>
-            )}
-          </div>
-        ) : null}
+        ) : (
+          <DetailBody data={detail} />
+        )}
       </Modal>
 
-      {/* Block User Modal */}
+      {/* Block modal */}
       <Modal
-        title="Khóa Tài Khoản"
-        open={blockModalVisible}
-        onCancel={() => setBlockModalVisible(false)}
+        title="Khóa tài khoản"
+        open={!!blockUser}
+        onCancel={() => setBlockUser(null)}
         onOk={() => blockForm.submit()}
         confirmLoading={blockLoading}
         okText="Khóa"
         cancelText="Hủy"
         okButtonProps={{ danger: true }}
+        destroyOnClose
       >
-        <Form form={blockForm} layout="vertical" onFinish={handleBlockSubmit}>
-          <Alert
-            message="Cảnh báo"
-            description={`Bạn đang khóa tài khoản "${selectedUser?.fullName || selectedUser?.email}". Người dùng sẽ không thể đăng nhập sau khi bị khóa.`}
-            type="warning"
-            showIcon
-            className="mb-4"
-          />
+        <p style={{ color: 'var(--vxn-fg-3)', marginTop: 0 }}>
+          Bạn đang khóa tài khoản &quot;{blockUser?.fullName || blockUser?.email}&quot;. Người dùng
+          sẽ không thể đăng nhập sau khi bị khóa.
+        </p>
+        <Form form={blockForm} layout="vertical" onFinish={submitBlock}>
           <Form.Item
             name="reason"
-            label="Lý Do Khóa"
+            label="Lý do khóa"
             rules={[{ required: true, message: 'Vui lòng nhập lý do khóa tài khoản' }]}
           >
-            <Input.TextArea
-              rows={4}
-              placeholder="Nhập lý do khóa tài khoản..."
-            />
+            <Input.TextArea rows={4} placeholder="Nhập lý do khóa tài khoản…" />
           </Form.Item>
         </Form>
       </Modal>
 
-      {/* Reset Password Modal */}
+      {/* Reset-password modal */}
       <Modal
-        title="Đặt Lại Mật Khẩu"
-        open={resetPasswordModalVisible}
-        onCancel={() => setResetPasswordModalVisible(false)}
-        onOk={() => resetPasswordForm.submit()}
-        confirmLoading={resetPasswordLoading}
-        okText="Đặt Lại"
+        title="Đặt lại mật khẩu"
+        open={!!pwUser}
+        onCancel={() => setPwUser(null)}
+        onOk={() => pwForm.submit()}
+        confirmLoading={pwLoading}
+        okText="Đặt lại"
         cancelText="Hủy"
+        destroyOnClose
       >
-        <Form
-          form={resetPasswordForm}
-          layout="vertical"
-          onFinish={handleResetPasswordSubmit}
-        >
-          <Alert
-            message="Thông báo"
-            description={`Bạn đang đặt lại mật khẩu cho "${selectedUser?.fullName || selectedUser?.email}".`}
-            type="info"
-            showIcon
-            className="mb-4"
-          />
+        <p style={{ color: 'var(--vxn-fg-3)', marginTop: 0 }}>
+          Đặt lại mật khẩu cho &quot;{pwUser?.fullName || pwUser?.email}&quot;.
+        </p>
+        <Form form={pwForm} layout="vertical" onFinish={submitPw}>
           <Form.Item
             name="newPassword"
-            label="Mật Khẩu Mới"
+            label="Mật khẩu mới"
             rules={[
               { required: true, message: 'Vui lòng nhập mật khẩu mới' },
               { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự' },
             ]}
           >
-            <Input.Password placeholder="Nhập mật khẩu mới..." />
+            <Input.Password placeholder="Nhập mật khẩu mới…" />
           </Form.Item>
         </Form>
       </Modal>
     </div>
   );
 };
+
+/* ───────── Detail body (real user + booking stats) ───────── */
+const PS_TONE = {
+  paid: 'green',
+  pending: 'orange',
+  cancelled: 'red',
+  refunded: 'purple',
+};
+
+function Row({ label, children }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        gap: 16,
+        padding: '10px 0',
+        borderBottom: '1px solid var(--vxn-border-muted)',
+      }}
+    >
+      <div
+        style={{
+          width: 160,
+          flexShrink: 0,
+          font: '500 13px var(--font-display)',
+          color: 'var(--vxn-fg-4)',
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ flex: 1, font: '400 13.5px var(--font-display)', color: 'var(--vxn-fg-1)' }}>
+        {children || '—'}
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, color }) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        background: 'var(--vxn-bg-soft)',
+        border: '1px solid var(--vxn-border-muted)',
+        borderRadius: 10,
+        padding: '12px 14px',
+      }}
+    >
+      <div style={{ font: '400 11.5px var(--font-display)', color: 'var(--vxn-fg-5)' }}>{label}</div>
+      <div style={{ font: '700 20px var(--font-display)', color, marginTop: 4 }}>{value}</div>
+    </div>
+  );
+}
+
+function DetailBody({ data }) {
+  const { user, stats, recentBookings } = data;
+  const t = TIER[user.loyaltyTier] || TIER.bronze;
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '4px 0 18px' }}>
+        <div
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: '50%',
+            background: t.solid,
+            color: '#fff',
+            display: 'grid',
+            placeItems: 'center',
+            font: '600 18px var(--font-display)',
+          }}
+        >
+          {initials(user.fullName || user.email)}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ font: '600 18px var(--font-display)', color: 'var(--vxn-ink)' }}>
+            {user.fullName || 'Chưa đặt tên'}
+          </div>
+          <div
+            style={{ font: '400 13px var(--font-display)', color: 'var(--vxn-fg-4)', marginTop: 2 }}
+          >
+            {user.email} · {user.phone || 'chưa có SĐT'}
+          </div>
+        </div>
+        <TierBadge tier={user.loyaltyTier} />
+      </div>
+
+      <div style={{ display: 'flex', gap: 12, marginBottom: 18 }}>
+        <MiniStat label="Tổng đặt vé" value={stats.totalBookings} color="var(--vxn-teal-700)" />
+        <MiniStat label="Đã thanh toán" value={stats.paidBookings} color="#15803D" />
+        <MiniStat label="Đã hủy" value={stats.cancelledBookings} color="#B91C1C" />
+        <MiniStat label="Tổng chi tiêu" value={MoneyVND(stats.totalSpent)} color="var(--vxn-ink)" />
+      </div>
+
+      <Row label="Vai trò">{user.role}</Row>
+      <Row label="Điểm tích lũy">
+        {Number(user.totalPoints || 0).toLocaleString('vi-VN')} điểm
+      </Row>
+      <Row label="Ngày đăng ký">{dayjs(user.createdAt).format('DD/MM/YYYY HH:mm')}</Row>
+      <Row label="Đăng nhập gần nhất">
+        {user.lastLogin ? dayjs(user.lastLogin).format('DD/MM/YYYY HH:mm') : 'Chưa đăng nhập'}
+      </Row>
+      {user.isBlocked && (
+        <div
+          style={{
+            marginTop: 16,
+            padding: '12px 14px',
+            borderRadius: 8,
+            background: '#FEF2F2',
+            border: '1px solid #FECACA',
+            color: '#B91C1C',
+            font: '400 13px var(--font-display)',
+          }}
+        >
+          <strong>Đã khóa:</strong> {user.blockedReason || 'Không có lý do'}
+          {user.blockedAt ? ` · ${dayjs(user.blockedAt).format('DD/MM/YYYY HH:mm')}` : ''}
+        </div>
+      )}
+
+      {recentBookings && recentBookings.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <div
+            style={{
+              font: '600 14px var(--font-display)',
+              color: 'var(--vxn-ink)',
+              marginBottom: 10,
+            }}
+          >
+            Đặt vé gần đây
+          </div>
+          <Table
+            columns={[
+              { key: 'code', label: 'Mã vé', render: (b) => b.bookingCode },
+              {
+                key: 'route',
+                label: 'Tuyến',
+                render: (b) => b.tripId?.routeId?.routeName || '—',
+              },
+              {
+                key: 'seats',
+                label: 'Ghế',
+                align: 'center',
+                render: (b) => b.seats?.length || 0,
+              },
+              {
+                key: 'price',
+                label: 'Tổng tiền',
+                align: 'right',
+                render: (b) => MoneyVND(b.finalPrice),
+              },
+              {
+                key: 'ps',
+                label: 'Trạng thái',
+                render: (b) => <Tag color={PS_TONE[b.paymentStatus]}>{b.paymentStatus}</Tag>,
+              },
+            ]}
+            rows={recentBookings}
+            dense
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default UserManagementPage;

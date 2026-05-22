@@ -1,39 +1,75 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Form, Input, Button, Card, message, Divider } from 'antd';
-import { UserOutlined, MailOutlined, LockOutlined, PhoneOutlined, GoogleOutlined, FacebookOutlined, ThunderboltOutlined, SafetyOutlined, GiftOutlined } from '@ant-design/icons';
+import { Link, useNavigate } from 'react-router-dom';
+import { message } from 'antd';
+import {
+  UserOutlined,
+  MailOutlined,
+  PhoneOutlined,
+  LockOutlined,
+} from '@ant-design/icons';
+import AuthShell from '../../components/auth/AuthShell';
+import AuthField from '../../components/auth/AuthField';
+import PasswordStrength, {
+  scorePassword,
+} from '../../components/auth/PasswordStrength';
 import useAuthStore from '../../store/authStore';
 import customerApi from '../../services/customerApi';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^0\d{9}$/;
+
 const CustomerRegisterPage = () => {
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuthStore();
-  const [form] = Form.useForm();
 
-  const onFinish = async (values) => {
+  const [form, setForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+  });
+  const [agree, setAgree] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  const set = (key) => (value) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    setErrors((e) => ({ ...e, [key]: undefined }));
+  };
+
+  const validate = () => {
+    const next = {};
+    if (form.fullName.trim().length < 2)
+      next.fullName = 'Vui lòng nhập họ và tên';
+    if (!EMAIL_RE.test(form.email.trim()))
+      next.email = 'Email không hợp lệ';
+    if (!PHONE_RE.test(form.phone.trim()))
+      next.phone = 'Số điện thoại gồm 10 chữ số, bắt đầu bằng 0';
+    const { checks } = scorePassword(form.password);
+    if (!(checks.length && checks.upper && checks.digit))
+      next.password = 'Tối thiểu 8 ký tự, gồm chữ hoa và số';
+    if (form.confirmPassword !== form.password)
+      next.confirmPassword = 'Mật khẩu xác nhận không khớp';
+    if (!agree) next.agree = 'Vui lòng đồng ý với điều khoản dịch vụ';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (loading || !validate()) return;
     setLoading(true);
     try {
-      // Remove confirmPassword before sending to API
-      const { confirmPassword, phoneNumber, name, ...rest } = values;
-
-      // Transform data to match backend expectations
-      const registerData = {
-        ...rest,
-        phone: phoneNumber, // Backend expects 'phone' not 'phoneNumber'
-        fullName: name,     // Backend expects 'fullName' not 'name'
-      };
-
-      const response = await customerApi.register(registerData);
-
-      // Response structure: { status, message, data: { user, accessToken, refreshToken } }
+      const response = await customerApi.register({
+        fullName: form.fullName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        password: form.password,
+      });
       if (response.status === 'success') {
         const { user, accessToken } = response.data;
-
-        // Auto login after successful registration
         login({ ...user, role: 'customer' }, accessToken);
-
-        message.success('Đăng ký thành công! Chào mừng bạn đến với Vé xe nhanh.');
+        message.success('Đăng ký thành công! Chào mừng bạn đến với Vé Xe Nhanh.');
         navigate('/');
       }
     } catch (error) {
@@ -43,239 +79,155 @@ const CustomerRegisterPage = () => {
     }
   };
 
-  const handleGoogleRegister = async () => {
-    message.info('Tính năng đăng ký Google đang được phát triển');
-  };
-
-  const handleFacebookRegister = async () => {
-    message.info('Tính năng đăng ký Facebook đang được phát triển');
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-red-900 to-orange-900 text-white overflow-hidden relative">
-      {/* Animated Background như homepage */}
-      <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-600/90 via-red-600/80 to-orange-600/90"></div>
-        
-        <div className="absolute inset-0">
-          <div className="absolute top-20 left-10 w-96 h-96 bg-gradient-to-r from-red-400/20 to-orange-500/20 rounded-full blur-3xl animate-float"></div>
-          <div className="absolute bottom-20 right-10 w-80 h-80 bg-gradient-to-r from-pink-400/20 to-red-500/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-red-400/10 to-orange-400/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }}></div>
-          
-          <div className="absolute top-32 right-20 w-32 h-32 border border-white/10 rounded-lg rotate-45 animate-pulse"></div>
-          <div className="absolute bottom-32 left-20 w-24 h-24 border border-white/10 rounded-full animate-pulse" style={{ animationDelay: '1s' }}></div>
-          <div className="absolute top-1/3 left-1/4 w-16 h-16 bg-white/5 rounded-lg rotate-12 animate-pulse" style={{ animationDelay: '3s' }}></div>
+    <AuthShell
+      contentMaxWidth={480}
+      side={{
+        eyebrow: 'MIỄN PHÍ · TÍCH ĐIỂM MỖI CHUYẾN',
+        headline: 'Tạo tài khoản miễn phí.',
+        body: 'Tài khoản VXN giúp bạn đặt vé nhanh hơn, tích điểm thành viên sau mỗi chuyến đi và quản lý mọi hành trình ở một nơi.',
+      }}
+    >
+      <h1 className="m-0 text-[32px] font-semibold tracking-tight text-vxn-ink">
+        Tạo tài khoản VXN
+      </h1>
+      <p className="m-0 mb-6 mt-2 text-[14px] text-vxn-fg-3">
+        Đã có tài khoản?{' '}
+        <Link
+          to="/login"
+          className="font-medium text-vxn-teal-800 hover:text-vxn-teal-700"
+        >
+          Đăng nhập →
+        </Link>
+      </p>
+
+      <div className="flex flex-col gap-3.5">
+        <AuthField
+          label="Họ và tên"
+          name="fullName"
+          value={form.fullName}
+          onChange={set('fullName')}
+          icon={UserOutlined}
+          placeholder="Nguyễn Văn A"
+          autoComplete="name"
+          error={errors.fullName}
+          autoFocus
+        />
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <AuthField
+            label="Email"
+            name="email"
+            value={form.email}
+            onChange={set('email')}
+            icon={MailOutlined}
+            placeholder="email@vidu.com"
+            autoComplete="email"
+            error={errors.email}
+          />
+          <AuthField
+            label="Số điện thoại"
+            name="phone"
+            value={form.phone}
+            onChange={set('phone')}
+            icon={PhoneOutlined}
+            placeholder="09xxxxxxxx"
+            autoComplete="tel"
+            inputMode="numeric"
+            maxLength={10}
+            error={errors.phone}
+          />
         </div>
-      </div>
-
-      <div className="relative flex items-center justify-center min-h-screen p-4 py-6">
-        <div className="w-full max-w-4xl">
-          {/* Logo and Title - Compact */}
-          <div className="text-center mb-4">
-            <div className="inline-flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-red-600 rounded-2xl flex items-center justify-center shadow-xl">
-                <ThunderboltOutlined className="text-xl text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-black text-white bg-gradient-to-r from-white via-orange-100 to-red-100 bg-clip-text text-transparent">
-                  Vé xe nhanh
-                </h1>
-                <p className="text-white/80 text-sm">Tạo tài khoản để bắt đầu đặt vé</p>
-              </div>
+        <div>
+          <AuthField
+            label="Mật khẩu"
+            name="password"
+            type="password"
+            value={form.password}
+            onChange={set('password')}
+            icon={LockOutlined}
+            placeholder="Tạo mật khẩu"
+            autoComplete="new-password"
+            error={errors.password}
+            hint={
+              form.password ? undefined : 'Tối thiểu 8 ký tự · gồm chữ hoa & số'
+            }
+          />
+          {form.password && (
+            <div className="mt-2">
+              <PasswordStrength value={form.password} />
             </div>
-          </div>
+          )}
+        </div>
+        <AuthField
+          label="Xác nhận mật khẩu"
+          name="confirmPassword"
+          type="password"
+          value={form.confirmPassword}
+          onChange={set('confirmPassword')}
+          icon={LockOutlined}
+          placeholder="Nhập lại mật khẩu"
+          autoComplete="new-password"
+          error={errors.confirmPassword}
+        />
 
-          {/* Register Card */}
-          <Card className="backdrop-blur-xl bg-white/95 shadow-2xl border-0 rounded-3xl overflow-hidden">
-            {/* Card Header - Compact */}
-            <div className="bg-gradient-to-r from-red-500 via-red-600 to-orange-600 -mx-6 -mt-6 mb-4 px-6 py-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <UserOutlined className="text-lg text-white" />
-                  <h2 className="text-xl font-bold text-white mb-0">Đăng Ký</h2>
-                </div>
-                {/* Feature badges inline */}
-                <div className="flex gap-2">
-                  {[
-                    { icon: <ThunderboltOutlined />, text: 'Nhanh' },
-                    { icon: <SafetyOutlined />, text: 'An toàn' },
-                    { icon: <GiftOutlined />, text: 'Ưu đãi' }
-                  ].map((badge, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-1 px-2 py-1 bg-white/20 backdrop-blur-sm rounded-lg border border-white/30"
-                    >
-                      <span className="text-white text-xs">{badge.icon}</span>
-                      <span className="text-xs font-semibold text-white hidden sm:inline">{badge.text}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="px-6 pb-6">
-
-              <Form
-                form={form}
-                name="customer-register"
-                onFinish={onFinish}
-                layout="vertical"
-                size="middle"
-                autoComplete="off"
-              >
-                {/* Row 1: Name & Email */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Form.Item
-                    name="name"
-                    label={<span className="text-xs font-semibold text-gray-700">Họ và tên</span>}
-                    rules={[
-                      { required: true, message: 'Nhập họ tên!' },
-                      { min: 2, message: 'Tối thiểu 2 ký tự!' },
-                    ]}
-                    className="mb-3"
-                  >
-                    <Input
-                      prefix={<UserOutlined className="text-red-500" />}
-                      placeholder="Nguyễn Văn A"
-                      className="h-10 rounded-lg border-2 border-gray-200 hover:border-red-400 focus:border-red-500 transition-all"
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    name="email"
-                    label={<span className="text-xs font-semibold text-gray-700">Email</span>}
-                    rules={[
-                      { required: true, message: 'Nhập email!' },
-                      { type: 'email', message: 'Email không hợp lệ!' },
-                    ]}
-                    className="mb-3"
-                  >
-                    <Input
-                      prefix={<MailOutlined className="text-red-500" />}
-                      placeholder="example@email.com"
-                      className="h-10 rounded-lg border-2 border-gray-200 hover:border-red-400 focus:border-red-500 transition-all"
-                    />
-                  </Form.Item>
-                </div>
-
-                {/* Row 2: Phone & Password */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Form.Item
-                    name="phoneNumber"
-                    label={<span className="text-xs font-semibold text-gray-700">Số điện thoại</span>}
-                    rules={[
-                      { required: true, message: 'Nhập SĐT!' },
-                      { pattern: /^[0-9]{10}$/, message: 'SĐT phải 10 chữ số!' }
-                    ]}
-                    className="mb-3"
-                  >
-                    <Input
-                      prefix={<PhoneOutlined className="text-red-500" />}
-                      placeholder="0912345678"
-                      className="h-10 rounded-lg border-2 border-gray-200 hover:border-red-400 focus:border-red-500 transition-all"
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    name="password"
-                    label={<span className="text-xs font-semibold text-gray-700">Mật khẩu</span>}
-                    rules={[
-                      { required: true, message: 'Nhập mật khẩu!' },
-                      { min: 6, message: 'Tối thiểu 6 ký tự!' },
-                      { pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, message: 'Có chữ thường, HOA và số!' }
-                    ]}
-                    hasFeedback
-                    className="mb-3"
-                  >
-                    <Input.Password
-                      prefix={<LockOutlined className="text-red-500" />}
-                      placeholder="Password123"
-                      className="h-10 rounded-lg border-2 border-gray-200 hover:border-red-400 focus:border-red-500 transition-all"
-                    />
-                  </Form.Item>
-                </div>
-
-                {/* Row 3: Confirm Password */}
-                <Form.Item
-                  name="confirmPassword"
-                  label={<span className="text-xs font-semibold text-gray-700">Xác nhận mật khẩu</span>}
-                  dependencies={['password']}
-                  hasFeedback
-                  rules={[
-                    { required: true, message: 'Xác nhận mật khẩu!' },
-                    ({ getFieldValue }) => ({
-                      validator(_, value) {
-                        if (!value || getFieldValue('password') === value) {
-                          return Promise.resolve();
-                        }
-                        return Promise.reject(new Error('Mật khẩu không khớp!'));
-                      },
-                    }),
-                  ]}
-                  className="mb-3"
-                >
-                  <Input.Password
-                    prefix={<LockOutlined className="text-red-500" />}
-                    placeholder="Nhập lại mật khẩu"
-                    className="h-10 rounded-lg border-2 border-gray-200 hover:border-red-400 focus:border-red-500 transition-all"
+        <div>
+          <button
+            type="button"
+            onClick={() => {
+              setAgree((a) => !a);
+              setErrors((e) => ({ ...e, agree: undefined }));
+            }}
+            className="flex items-start gap-2.5 border-0 bg-transparent p-0 text-left text-[13px] leading-[1.5] text-vxn-fg-2"
+          >
+            <span
+              className="mt-0.5 grid h-[18px] w-[18px] shrink-0 place-items-center rounded transition-colors"
+              style={{
+                background: agree ? '#E89B26' : '#fff',
+                border: agree ? '1.5px solid #E89B26' : '1.5px solid #DFE2EC',
+              }}
+            >
+              {agree && (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M5 13l4 4L19 7"
+                    stroke="#fff"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
-                </Form.Item>
-
-                {/* Submit Button & Social Login */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-                  <Button
-                    type="primary"
-                    htmlType="submit"
-                    loading={loading}
-                    icon={<ThunderboltOutlined />}
-                    className="h-10 rounded-lg bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 border-0 font-bold shadow-lg hover:shadow-xl transition-all"
-                  >
-                    {loading ? 'Đăng ký...' : 'Đăng Ký'}
-                  </Button>
-
-                  <Button
-                    icon={<GoogleOutlined />}
-                    onClick={handleGoogleRegister}
-                    className="h-10 rounded-lg border-2 border-gray-200 hover:border-red-300 hover:bg-red-50 transition-all"
-                  >
-                    Google
-                  </Button>
-
-                  <Button
-                    icon={<FacebookOutlined />}
-                    onClick={handleFacebookRegister}
-                    className="h-10 rounded-lg border-2 border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all"
-                  >
-                    Facebook
-                  </Button>
-                </div>
-              </Form>
-
-              {/* Footer Links */}
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
-                <Link
-                  to="/"
-                  className="text-sm text-gray-500 hover:text-red-600 transition-colors"
-                >
-                  ← Trang chủ
-                </Link>
-                <p className="text-sm text-gray-600">
-                  Đã có tài khoản?{' '}
-                  <Link to="/login" className="text-red-600 hover:text-red-700 font-bold">
-                    Đăng nhập
-                  </Link>
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          {/* Footer - Compact */}
-          <p className="text-center text-xs text-white/60 mt-3">
-
-          </p>
+                </svg>
+              )}
+            </span>
+            <span>
+              Tôi đồng ý với{' '}
+              <Link to="/faq" className="text-vxn-teal-800 hover:underline">
+                Điều khoản dịch vụ
+              </Link>{' '}
+              và{' '}
+              <Link to="/faq" className="text-vxn-teal-800 hover:underline">
+                Chính sách quyền riêng tư
+              </Link>{' '}
+              của Vé Xe Nhanh.
+            </span>
+          </button>
+          {errors.agree && (
+            <span className="mt-1 block text-[12px] text-[#DC2626]">
+              {errors.agree}
+            </span>
+          )}
         </div>
+
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={loading}
+          className="mt-1.5 h-12 w-full rounded-[10px] border-0 text-[15px] font-semibold text-white transition hover:opacity-95 disabled:opacity-60"
+          style={{ background: '#E89B26' }}
+        >
+          {loading ? 'Đang tạo tài khoản…' : 'Tạo tài khoản'}
+        </button>
       </div>
-    </div>
+    </AuthShell>
   );
 };
 

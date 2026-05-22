@@ -1,22 +1,49 @@
 import { useState } from 'react';
 import { Modal, Form, Input, Rate, Upload, Button, message } from 'antd';
-import {
-  FaStar,
-  FaBus,
-  FaUserTie,
-  FaClock,
-  FaSmile
-} from 'react-icons/fa';
-import { MdRateReview } from 'react-icons/md';
-import { IoMdImages } from 'react-icons/io';
+import { PlusOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { createReview } from '../services/reviewApi';
+import { getOperatorDisplayName } from '../utils/operatorDisplay';
 
 const { TextArea } = Input;
+
+const TEAL = '#036672';
+const SAFFRON = '#E89B26';
+
+const DETAIL_RATINGS = [
+  { name: 'vehicleRating', label: 'Xe' },
+  { name: 'driverRating', label: 'Tài xế' },
+  { name: 'punctualityRating', label: 'Đúng giờ' },
+  { name: 'serviceRating', label: 'Phục vụ' },
+];
+
+const resolveRoute = (booking) => {
+  const route = booking?.tripId?.routeId;
+  if (route?.origin?.city && route?.destination?.city) {
+    return `${route.origin.city} → ${route.destination.city}`;
+  }
+  return route?.routeName || booking?.tripInfo?.route || null;
+};
+
+const resolveOperator = (booking) => {
+  const op = booking?.operatorId;
+  if (op && typeof op === 'object') return getOperatorDisplayName(op, null);
+  return null;
+};
+
+const resolveDate = (booking) => {
+  const d = booking?.tripId?.departureTime || booking?.tripInfo?.departureTime;
+  return d ? dayjs(d).format('DD/MM/YYYY') : null;
+};
 
 const CreateReviewModal = ({ visible, onClose, booking, onReviewCreated }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [fileList, setFileList] = useState([]);
+
+  const route = resolveRoute(booking);
+  const operator = resolveOperator(booking);
+  const tripDate = resolveDate(booking);
 
   const handleSubmit = async (values) => {
     setLoading(true);
@@ -28,7 +55,9 @@ const CreateReviewModal = ({ visible, onClose, booking, onReviewCreated }) => {
         punctualityRating: values.punctualityRating || null,
         serviceRating: values.serviceRating || null,
         comment: values.comment || '',
-        images: fileList.map(file => file.url || file.response?.url).filter(Boolean),
+        images: fileList
+          .map((file) => file.url || file.response?.url)
+          .filter(Boolean),
       };
 
       const response = await createReview(booking._id, reviewData);
@@ -37,19 +66,25 @@ const CreateReviewModal = ({ visible, onClose, booking, onReviewCreated }) => {
         message.success('Cảm ơn bạn đã đánh giá!');
         form.resetFields();
         setFileList([]);
-        onReviewCreated && onReviewCreated(response.data);
+        onReviewCreated && onReviewCreated(response.data || response.review);
         onClose();
       }
     } catch (error) {
       console.error('Create review error:', error);
-      message.error(error.response?.data?.message || 'Không thể gửi đánh giá. Vui lòng thử lại.');
+      message.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          'Không thể gửi đánh giá. Vui lòng thử lại.'
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUploadChange = ({ fileList: newFileList }) => {
-    setFileList(newFileList);
+  const handleCancel = () => {
+    form.resetFields();
+    setFileList([]);
+    onClose();
   };
 
   const uploadProps = {
@@ -57,15 +92,20 @@ const CreateReviewModal = ({ visible, onClose, booking, onReviewCreated }) => {
       const isImage = file.type.startsWith('image/');
       if (!isImage) {
         message.error('Chỉ được tải lên hình ảnh!');
+        return Upload.LIST_IGNORE;
       }
       const isLt5M = file.size / 1024 / 1024 < 5;
       if (!isLt5M) {
         message.error('Hình ảnh phải nhỏ hơn 5MB!');
+        return Upload.LIST_IGNORE;
       }
-      return isImage && isLt5M;
+      setFileList((prev) => [...prev, file]);
+      return false; // prevent auto upload
+    },
+    onRemove: (file) => {
+      setFileList((prev) => prev.filter((f) => f.uid !== file.uid));
     },
     fileList,
-    onChange: handleUploadChange,
     listType: 'picture-card',
     maxCount: 5,
     accept: 'image/*',
@@ -74,157 +114,111 @@ const CreateReviewModal = ({ visible, onClose, booking, onReviewCreated }) => {
   return (
     <Modal
       title={
-        <div className="flex items-center gap-2 text-xl">
-          <MdRateReview className="text-blue-500" />
-          <span>Đánh Giá Chuyến Đi</span>
-        </div>
+        <span className="text-[17px] font-semibold text-vxn-ink">
+          Đánh giá chuyến đi
+        </span>
       }
       open={visible}
-      onCancel={onClose}
+      onCancel={handleCancel}
       footer={null}
-      width={700}
-      destroyOnClose
+      width={680}
+      destroyOnHidden
     >
-      <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-        <p className="text-sm text-gray-700">
-          <strong>Tuyến:</strong> {booking?.tripInfo?.route || booking?.tripId?.routeId?.routeName}
-        </p>
-        <p className="text-sm text-gray-700">
-          <strong>Ngày:</strong> {new Date(booking?.tripInfo?.departureTime || booking?.tripId?.departureTime).toLocaleDateString('vi-VN')}
-        </p>
+      <div className="mb-5 rounded-xl border border-vxn-border bg-vxn-bg-soft px-4 py-3">
+        <div className="text-[13px] font-medium text-vxn-ink">
+          Đánh giá của bạn giúp người sau chọn nhà xe tốt hơn
+        </div>
+        {(operator || route || tripDate) && (
+          <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[12px] text-vxn-fg-4">
+            {operator && <span>{operator}</span>}
+            {operator && (route || tripDate) && <span>·</span>}
+            {route && <span>{route}</span>}
+            {route && tripDate && <span>·</span>}
+            {tripDate && <span>{tripDate}</span>}
+          </div>
+        )}
       </div>
 
       <Form
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
-        initialValues={{
-          overallRating: 5,
-        }}
+        initialValues={{ overallRating: 5 }}
+        requiredMark={false}
       >
-        {/* Overall Rating */}
         <Form.Item
-          label={
-            <span className="flex items-center gap-2 font-semibold">
-              <FaStar className="text-yellow-500" />
-              Đánh giá tổng thể
-            </span>
-          }
+          label={<span className="font-medium">Đánh giá tổng thể</span>}
           name="overallRating"
           rules={[{ required: true, message: 'Vui lòng chọn đánh giá!' }]}
         >
-          <Rate allowHalf className="text-3xl" />
+          <Rate allowHalf style={{ color: SAFFRON, fontSize: 32 }} />
         </Form.Item>
 
-        {/* Detailed Ratings */}
-        <div className="bg-gray-50 p-4 rounded-lg mb-4">
-          <p className="text-sm font-semibold mb-3 text-gray-700">
-            Đánh giá chi tiết (Tùy chọn)
-          </p>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Form.Item
-              label={
-                <span className="flex items-center gap-2 text-sm">
-                  <FaBus className="text-blue-500" />
-                  Xe
-                </span>
-              }
-              name="vehicleRating"
-            >
-              <Rate allowHalf />
-            </Form.Item>
-
-            <Form.Item
-              label={
-                <span className="flex items-center gap-2 text-sm">
-                  <FaUserTie className="text-green-500" />
-                  Tài xế
-                </span>
-              }
-              name="driverRating"
-            >
-              <Rate allowHalf />
-            </Form.Item>
-
-            <Form.Item
-              label={
-                <span className="flex items-center gap-2 text-sm">
-                  <FaClock className="text-orange-500" />
-                  Đúng giờ
-                </span>
-              }
-              name="punctualityRating"
-            >
-              <Rate allowHalf />
-            </Form.Item>
-
-            <Form.Item
-              label={
-                <span className="flex items-center gap-2 text-sm">
-                  <FaSmile className="text-purple-500" />
-                  Phục vụ
-                </span>
-              }
-              name="serviceRating"
-            >
-              <Rate allowHalf />
-            </Form.Item>
+        <div className="mb-5 rounded-xl border border-vxn-border bg-vxn-bg-soft px-4 py-3">
+          <div className="mb-2 text-[13px] font-medium text-vxn-ink">
+            Đánh giá chi tiết{' '}
+            <span className="font-normal text-vxn-fg-4">(tùy chọn)</span>
+          </div>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+            {DETAIL_RATINGS.map((r) => (
+              <Form.Item
+                key={r.name}
+                label={<span className="text-[13px]">{r.label}</span>}
+                name={r.name}
+                className="!mb-1"
+              >
+                <Rate allowHalf style={{ color: SAFFRON, fontSize: 18 }} />
+              </Form.Item>
+            ))}
           </div>
         </div>
 
-        {/* Comment */}
         <Form.Item
-          label="Nhận xét của bạn"
+          label={<span className="font-medium">Nhận xét của bạn</span>}
           name="comment"
-          rules={[
-            { max: 500, message: 'Nhận xét không được vượt quá 500 ký tự' },
-          ]}
+          rules={[{ max: 500, message: 'Nhận xét không quá 500 ký tự!' }]}
         >
           <TextArea
-            rows={4}
-            placeholder="Chia sẻ trải nghiệm của bạn về chuyến đi này..."
+            rows={5}
+            placeholder="Chia sẻ trải nghiệm của bạn về chuyến đi này (xe, tài xế, sự đúng giờ, dịch vụ...)"
             showCount
             maxLength={500}
           />
         </Form.Item>
 
-        {/* Images Upload */}
         <Form.Item
           label={
-            <span className="flex items-center gap-2">
-              <IoMdImages className="text-blue-500" />
-              Hình ảnh (Tối đa 5 ảnh)
+            <span className="font-medium">
+              Hình ảnh{' '}
+              <span className="font-normal text-vxn-fg-4">(tối đa 5 ảnh)</span>
             </span>
           }
         >
           <Upload {...uploadProps}>
             {fileList.length < 5 && (
-              <div>
-                <IoMdImages className="text-2xl text-gray-400 mx-auto" />
-                <div className="mt-2 text-xs text-gray-600">Tải ảnh lên</div>
+              <div className="text-vxn-fg-4">
+                <PlusOutlined />
+                <div className="mt-1 text-[12px]">Tải ảnh</div>
               </div>
             )}
           </Upload>
         </Form.Item>
 
-        {/* Actions */}
-        <Form.Item className="mb-0 mt-6">
-          <div className="flex gap-3 justify-end">
-            <Button size="large" onClick={onClose}>
-              Hủy
-            </Button>
-            <Button
-              type="primary"
-              htmlType="submit"
-              size="large"
-              loading={loading}
-              icon={<MdRateReview />}
-            >
-              Gửi đánh giá
-            </Button>
-          </div>
-        </Form.Item>
+        <div className="mt-2 flex justify-end gap-2">
+          <Button onClick={handleCancel} size="large" className="!rounded-lg">
+            Hủy
+          </Button>
+          <Button
+            type="primary"
+            htmlType="submit"
+            loading={loading}
+            size="large"
+            className="!rounded-lg"
+            style={{ background: TEAL, borderColor: TEAL }}
+          >
+            Gửi đánh giá
+          </Button>
+        </div>
       </Form>
     </Modal>
   );
