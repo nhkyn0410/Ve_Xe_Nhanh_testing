@@ -22,7 +22,146 @@ import {
   CloseCircleOutlined,
 } from '@ant-design/icons';
 import { Html5Qrcode } from 'html5-qrcode';
-import tripManagerApi from '../../services/tripManagerApi';
+import { tripManagerApi } from '../../services/tripManagerApi';
+
+const formatCurrency = (value) => {
+  if (value === null || value === undefined || value === '') return 'Chưa có dữ liệu';
+  return `${Number(value || 0).toLocaleString('vi-VN')}đ`;
+};
+
+const paymentMethodLabels = {
+  cash: 'Tiền mặt',
+  credit_card: 'Thẻ tín dụng',
+  debit_card: 'Thẻ ghi nợ',
+  momo: 'MoMo',
+  vnpay: 'VNPay',
+  zalopay: 'ZaloPay',
+};
+
+const paymentStatusLabels = {
+  pending: { color: 'gold', text: 'Chưa thanh toán' },
+  paid: { color: 'success', text: 'Đã thanh toán' },
+  failed: { color: 'error', text: 'Thanh toán lỗi' },
+  refunded: { color: 'default', text: 'Đã hoàn tiền' },
+};
+
+const getBooking = (ticket) =>
+  ticket?.bookingId && typeof ticket.bookingId === 'object' ? ticket.bookingId : {};
+
+const getPassengers = (ticket) => {
+  if (ticket?.passengers?.length) return ticket.passengers;
+
+  return (getBooking(ticket).seats || []).map((seat) => ({
+    seatNumber: seat.seatNumber,
+    fullName: seat.passengerName,
+    phone: seat.passengerPhone,
+  }));
+};
+
+const maskPhone = (phone) => {
+  if (!phone) return '';
+
+  const normalized = String(phone).trim();
+  if (normalized.length <= 5) return normalized;
+
+  return `${normalized.slice(0, 3)}***${normalized.slice(-2)}`;
+};
+
+const getTripSummary = (ticket, trip) => {
+  const tripInfo = ticket?.tripInfo || {};
+  const routeLabel =
+    tripInfo.routeName ||
+    trip?.route?.routeName ||
+    [tripInfo.origin?.city, tripInfo.destination?.city].filter(Boolean).join(' - ') ||
+    'Chuyến đang soát vé';
+  const departureTime = tripInfo.departureTime || trip?.departureTime;
+
+  return {
+    routeLabel,
+    departureTime: departureTime ? new Date(departureTime).toLocaleString('vi-VN') : '',
+    pickupPoint: tripInfo.pickupPoint?.name || getBooking(ticket).pickupPoint?.name || '',
+    dropoffPoint: tripInfo.dropoffPoint?.name || getBooking(ticket).dropoffPoint?.name || '',
+  };
+};
+
+const TicketScanSummary = ({ ticket, trip }) => {
+  const booking = getBooking(ticket);
+  const passengers = getPassengers(ticket);
+  const paymentStatus = paymentStatusLabels[booking.paymentStatus] || {
+    color: 'default',
+    text: 'Chưa có dữ liệu',
+  };
+  const tripSummary = getTripSummary(ticket, trip);
+  const contactName = booking.contactInfo?.name || passengers[0]?.fullName || 'Chưa có dữ liệu';
+  const contactPhone = booking.contactInfo?.phone || passengers[0]?.phone;
+  const amount = booking.finalPrice ?? ticket?.totalPrice ?? booking.totalPrice;
+  let amountLabel = 'Số tiền';
+  if (booking.paymentMethod === 'cash' && booking.paymentStatus === 'pending') {
+    amountLabel = 'Số tiền cần thu';
+  } else if (booking.paymentStatus === 'paid') {
+    amountLabel = 'Số tiền đã thanh toán';
+  }
+
+  return (
+    <Descriptions bordered column={1} size="small">
+      <Descriptions.Item label="Mã vé">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono font-semibold text-blue-600">{ticket?.ticketCode}</span>
+          {booking.bookingCode && <Tag>Mã đặt vé {booking.bookingCode}</Tag>}
+        </div>
+      </Descriptions.Item>
+
+      <Descriptions.Item label="Khách liên hệ">
+        <div className="font-medium text-gray-800">{contactName}</div>
+        {contactPhone && <div className="text-gray-500">SĐT {maskPhone(contactPhone)}</div>}
+      </Descriptions.Item>
+
+      <Descriptions.Item label="Hành khách / ghế">
+        {passengers.length > 0 ? (
+          <div className="space-y-2">
+            {passengers.map((passenger, index) => (
+              <div
+                key={`${passenger.seatNumber || 'seat'}-${passenger.fullName || index}`}
+                className="flex flex-wrap items-center gap-2"
+              >
+                <Tag color="blue">Ghế {passenger.seatNumber || '-'}</Tag>
+                <span className="font-medium">{passenger.fullName || 'Chưa có tên'}</span>
+                {passenger.phone && (
+                  <span className="text-gray-500">SĐT {maskPhone(passenger.phone)}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span className="text-gray-500">Chưa có dữ liệu hành khách</span>
+        )}
+      </Descriptions.Item>
+
+      <Descriptions.Item label="Chuyến đi">
+        <div className="font-medium text-gray-800">{tripSummary.routeLabel}</div>
+        {tripSummary.departureTime && (
+          <div className="text-gray-500">Khởi hành {tripSummary.departureTime}</div>
+        )}
+        {(tripSummary.pickupPoint || tripSummary.dropoffPoint) && (
+          <div className="text-gray-500">
+            {tripSummary.pickupPoint || 'Điểm đón chưa cập nhật'} -{' '}
+            {tripSummary.dropoffPoint || 'Điểm trả chưa cập nhật'}
+          </div>
+        )}
+      </Descriptions.Item>
+
+      <Descriptions.Item label="Thanh toán">
+        <div className="flex flex-wrap items-center gap-2">
+          <Tag color={paymentStatus.color}>{paymentStatus.text}</Tag>
+          <Tag>{paymentMethodLabels[booking.paymentMethod] || 'Phương thức chưa cập nhật'}</Tag>
+        </div>
+        <div className="mt-2 text-base font-semibold text-gray-900">
+          {amountLabel}: {formatCurrency(amount)}
+        </div>
+      </Descriptions.Item>
+    </Descriptions>
+  );
+};
 
 const QRScannerPage = () => {
   const { tripId } = useParams();
@@ -34,27 +173,102 @@ const QRScannerPage = () => {
   const [verificationResult, setVerificationResult] = useState(null);
   const [paymentConfirmModalVisible, setPaymentConfirmModalVisible] = useState(false);
   const [pendingQrData, setPendingQrData] = useState(null);
+  const [pendingPaymentTicket, setPendingPaymentTicket] = useState(null);
   const html5QrCodeRef = useRef(null);
 
-  // Fetch trip details
-  const fetchTrip = async () => {
+  useEffect(() => {
+    const fetchTrip = async () => {
+      setLoading(true);
+      try {
+        const response = await tripManagerApi.getTripDetails(tripId);
+        if (response.success && response.data && response.data.trip) {
+          setTrip(response.data.trip);
+        }
+      } catch (error) {
+        console.error('Fetch trip error:', error);
+        message.error(error.message || 'Không thể tải thông tin chuyến xe');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTrip();
+  }, [tripId]);
+
+  // Stop QR scanner
+  const stopScanner = async () => {
+    if (html5QrCodeRef.current) {
+      try {
+        await html5QrCodeRef.current.stop();
+        html5QrCodeRef.current.clear();
+        html5QrCodeRef.current = null;
+      } catch (error) {
+        console.error('Stop scanner error:', error);
+      }
+    }
+    setScanning(false);
+  };
+
+  // Verify ticket with QR data
+  const verifyTicket = async (qrCodeData, confirmPayment = false) => {
     setLoading(true);
     try {
-      const response = await tripManagerApi.getTripDetails(tripId);
-      if (response.success && response.data && response.data.trip) {
-        setTrip(response.data.trip);
+      const response = await tripManagerApi.verifyTicketQR(tripId, {
+        qrCodeData,
+        confirmPayment, // Thêm flag để confirm payment nếu là vé cash
+      });
+
+      if (response.success) {
+        const { ticket } = response.data;
+
+        // Check if ticket requires cash payment confirmation
+        if (
+          ticket.bookingId?.paymentMethod === 'cash' &&
+          ticket.bookingId?.paymentStatus === 'pending' &&
+          !confirmPayment
+        ) {
+          // Show payment confirmation modal
+          setPendingQrData(qrCodeData);
+          setPendingPaymentTicket(ticket);
+          setPaymentConfirmModalVisible(true);
+          setLoading(false);
+          return;
+        }
+
+        setPendingPaymentTicket(null);
+        setVerifiedTicket(ticket);
+        setVerificationResult({
+          success: true,
+          message: 'Vé hợp lệ! Hành khách đã được xác nhận lên xe.',
+        });
+        message.success('Xác thực vé thành công');
       }
     } catch (error) {
-      console.error('Fetch trip error:', error);
-      message.error(error.message || 'Không thể tải thông tin chuyến xe');
+      console.error('Verify ticket error:', error);
+      setVerificationResult({
+        success: false,
+        message: error.message || 'Vé không hợp lệ',
+      });
+      message.error(error.message || 'Vé không hợp lệ');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchTrip();
-  }, [tripId]);
+  // Handle scan success
+  const handleScanSuccess = async (decodedText) => {
+    // Stop scanner
+    await stopScanner();
+
+    // Verify ticket
+    await verifyTicket(decodedText);
+  };
+
+  // Handle scan error
+  const handleScanError = (_error) => {
+    // Ignore continuous scanning errors
+    // console.warn('Scan error:', _error);
+  };
 
   // Start QR scanner
   const startScanner = async () => {
@@ -81,77 +295,6 @@ const QRScannerPage = () => {
     }
   };
 
-  // Stop QR scanner
-  const stopScanner = async () => {
-    if (html5QrCodeRef.current) {
-      try {
-        await html5QrCodeRef.current.stop();
-        html5QrCodeRef.current.clear();
-        html5QrCodeRef.current = null;
-      } catch (error) {
-        console.error('Stop scanner error:', error);
-      }
-    }
-    setScanning(false);
-  };
-
-  // Handle scan success
-  const handleScanSuccess = async (decodedText) => {
-    // Stop scanner
-    await stopScanner();
-
-    // Verify ticket
-    await verifyTicket(decodedText);
-  };
-
-  // Handle scan error
-  const handleScanError = (error) => {
-    // Ignore continuous scanning errors
-    // console.warn('Scan error:', error);
-  };
-
-  // Verify ticket with QR data
-  const verifyTicket = async (qrCodeData, confirmPayment = false) => {
-    setLoading(true);
-    try {
-      const response = await tripManagerApi.verifyTicketQR(tripId, {
-        qrCodeData,
-        confirmPayment // Thêm flag để confirm payment nếu là vé cash
-      });
-
-      if (response.success) {
-        const ticket = response.data.ticket;
-
-        // Check if ticket requires cash payment confirmation
-        if (ticket.bookingId?.paymentMethod === 'cash' &&
-            ticket.bookingId?.paymentStatus === 'pending' &&
-            !confirmPayment) {
-          // Show payment confirmation modal
-          setPendingQrData(qrCodeData);
-          setPaymentConfirmModalVisible(true);
-          setLoading(false);
-          return;
-        }
-
-        setVerifiedTicket(ticket);
-        setVerificationResult({
-          success: true,
-          message: 'Vé hợp lệ! Hành khách đã được xác nhận lên xe.',
-        });
-        message.success('Xác thực vé thành công');
-      }
-    } catch (error) {
-      console.error('Verify ticket error:', error);
-      setVerificationResult({
-        success: false,
-        message: error.message || 'Vé không hợp lệ',
-      });
-      message.error(error.message || 'Vé không hợp lệ');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Handle confirm cash payment
   const handleConfirmPayment = async () => {
     if (!pendingQrData) return;
@@ -166,6 +309,7 @@ const QRScannerPage = () => {
   const handleCancelPaymentConfirm = () => {
     setPaymentConfirmModalVisible(false);
     setPendingQrData(null);
+    setPendingPaymentTicket(null);
     message.info('Đã hủy xác thực vé');
   };
 
@@ -174,12 +318,6 @@ const QRScannerPage = () => {
     try {
       setLoading(true);
 
-      console.log('📸 Processing QR image upload:', {
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type,
-      });
-
       // Create a temporary Html5Qrcode instance just for file scanning
       const html5QrCode = new Html5Qrcode('qr-reader-upload');
 
@@ -187,17 +325,14 @@ const QRScannerPage = () => {
       const decodedText = await new Promise((resolve, reject) => {
         html5QrCode
           .scanFile(file, true) // true = show image
-          .then((decodedText) => {
-            console.log('QR code decoded successfully:', decodedText);
-            resolve(decodedText);
+          .then((decodedQrText) => {
+            resolve(decodedQrText);
           })
           .catch((err) => {
             console.error(' QR decode failed:', err);
             reject(err);
           });
       });
-
-      console.log('🎫 Decoded QR from file:', decodedText);
 
       // Verify ticket
       await verifyTicket(decodedText);
@@ -208,9 +343,11 @@ const QRScannerPage = () => {
       let errorMessage = 'Không thể đọc mã QR từ ảnh.';
 
       if (error.message && error.message.includes('No MultiFormat Readers')) {
-        errorMessage = 'Không tìm thấy mã QR trong ảnh. Vui lòng chụp ảnh rõ hơn và đảm bảo mã QR nằm trong khung hình.';
+        errorMessage =
+          'Không tìm thấy mã QR trong ảnh. Vui lòng chụp ảnh rõ hơn và đảm bảo mã QR nằm trong khung hình.';
       } else if (error.message && error.message.includes('NotFoundException')) {
-        errorMessage = 'Không nhận diện được mã QR. Hãy thử:\n- Chụp ảnh rõ nét hơn\n- Tăng độ sáng\n- Giữ camera ổn định\n- Hoặc sử dụng chức năng quét bằng camera';
+        errorMessage =
+          'Không nhận diện được mã QR. Hãy thử:\n- Chụp ảnh rõ nét hơn\n- Tăng độ sáng\n- Giữ camera ổn định\n- Hoặc sử dụng chức năng quét bằng camera';
       } else if (error.message) {
         errorMessage = `Lỗi đọc QR: ${error.message}`;
       }
@@ -236,14 +373,16 @@ const QRScannerPage = () => {
   const handleReset = () => {
     setVerificationResult(null);
     setVerifiedTicket(null);
+    setPendingPaymentTicket(null);
   };
 
   // Cleanup on unmount
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       stopScanner();
-    };
-  }, []);
+    },
+    []
+  );
 
   if (loading && !trip) {
     return (
@@ -297,11 +436,7 @@ const QRScannerPage = () => {
                 )
               }
               extra={[
-                <Button
-                  key="scan-again"
-                  type="primary"
-                  onClick={handleReset}
-                >
+                <Button key="scan-again" type="primary" onClick={handleReset}>
                   Quét vé khác
                 </Button>,
               ]}
@@ -309,29 +444,13 @@ const QRScannerPage = () => {
 
             {verifiedTicket && (
               <div className="mt-6">
-                <Descriptions bordered column={1}>
-                  <Descriptions.Item label="Mã vé">
-                    <span className="font-mono font-semibold text-blue-600">
-                      {verifiedTicket.ticketCode}
-                    </span>
-                  </Descriptions.Item>
-
-                  <Descriptions.Item label="Trạng thái">
-                    <Tag color="success">Đã xác nhận lên xe</Tag>
-                  </Descriptions.Item>
-
-                  <Descriptions.Item label="Hành khách">
-                    <div className="space-y-2">
-                      {verifiedTicket.passengers?.map((p, index) => (
-                        <div key={index}>
-                          <Tag color="blue">Ghế {p.seatNumber}</Tag>
-                          <span className="ml-2">{p.fullName}</span>
-                          <span className="ml-2 text-gray-500">{p.phone}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </Descriptions.Item>
-                </Descriptions>
+                <Alert
+                  className="mb-4"
+                  message="Đã ghi nhận hành khách lên xe"
+                  type="success"
+                  showIcon
+                />
+                <TicketScanSummary ticket={verifiedTicket} trip={trip} />
               </div>
             )}
           </Card>
@@ -346,8 +465,8 @@ const QRScannerPage = () => {
                 message="Hướng dẫn sử dụng"
                 description={
                   <ul className="list-disc ml-4 mt-2">
-                    <li>Nhấn nút "Mở camera" để quét mã QR từ vé của hành khách</li>
-                    <li>Hoặc nhấn "Tải ảnh QR" để tải ảnh mã QR từ thiết bị</li>
+                    <li>Nhấn nút &quot;Mở camera&quot; để quét mã QR từ vé của hành khách</li>
+                    <li>Hoặc nhấn &quot;Tải ảnh QR&quot; để tải ảnh mã QR từ thiết bị</li>
                     <li>Đưa mã QR vào khung hình để quét tự động</li>
                     <li>Hệ thống sẽ tự động xác thực vé</li>
                   </ul>
@@ -368,11 +487,7 @@ const QRScannerPage = () => {
                     Mở camera
                   </Button>
 
-                  <Upload
-                    beforeUpload={handleUploadQR}
-                    accept="image/*"
-                    showUploadList={false}
-                  >
+                  <Upload beforeUpload={handleUploadQR} accept="image/*" showUploadList={false}>
                     <Button size="large" icon={<UploadOutlined />}>
                       Tải ảnh QR
                     </Button>
@@ -441,13 +556,14 @@ const QRScannerPage = () => {
                 Đây là vé <strong>trả tiền mặt khi lên xe</strong> và chưa thanh toán.
               </p>
               <p className="text-base mb-3">
-                Vui lòng <strong className="text-red-600">thu tiền từ hành khách</strong> trước khi xác nhận.
+                Vui lòng <strong className="text-red-600">thu tiền từ hành khách</strong> trước khi
+                xác nhận.
               </p>
               <p className="text-sm text-gray-600">
-                Sau khi nhấn "Đã nhận tiền", hệ thống sẽ:
+                Sau khi nhấn &quot;Đã nhận tiền&quot;, hệ thống sẽ:
               </p>
               <ul className="list-disc ml-5 text-sm text-gray-600 mt-2">
-                <li>Cập nhật trạng thái thanh toán thành "Đã thanh toán"</li>
+                <li>Cập nhật trạng thái thanh toán thành &quot;Đã thanh toán&quot;</li>
                 <li>Xác nhận hành khách đã lên xe</li>
               </ul>
             </div>
@@ -455,6 +571,11 @@ const QRScannerPage = () => {
           type="warning"
           showIcon
         />
+        {pendingPaymentTicket && (
+          <div className="mt-4">
+            <TicketScanSummary ticket={pendingPaymentTicket} trip={trip} />
+          </div>
+        )}
       </Modal>
     </div>
   );
