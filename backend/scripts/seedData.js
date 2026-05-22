@@ -67,10 +67,13 @@ async function clearData() {
   logger.success('Đã xóa sạch dữ liệu cũ.');
 }
 
-/**
- * Main Seed Function
- */
-async function seed() {
+  return createdDocs;
+};
+
+
+
+// Enhanced seed data with full journey tracking
+const seedData = async () => {
   try {
     await connectDB();
     await clearData();
