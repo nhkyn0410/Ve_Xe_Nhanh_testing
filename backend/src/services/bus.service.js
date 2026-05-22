@@ -186,7 +186,7 @@ class BusService {
    * @returns {Object} Bus
    */
   static async getById(busId, operatorId = null) {
-    const bus = await Bus.findById(busId).populate('operatorId', 'companyName email phone');
+    const bus = await Bus.findById(busId).populate('operatorId', 'operatorName companyName email phone');
 
     if (!bus) {
       throw new Error('Xe không tồn tại');
@@ -440,7 +440,7 @@ class BusService {
 
     // Execute query
     const buses = await Bus.find(query)
-      .populate('operatorId', 'companyName averageRating logo')
+      .populate('operatorId', 'operatorName companyName averageRating logo')
       .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
       .skip(skip)
       .limit(limit);

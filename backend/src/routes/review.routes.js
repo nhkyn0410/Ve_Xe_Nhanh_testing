@@ -46,6 +46,14 @@ router.get(
   reviewController.getMyReviews
 );
 
+// Get bookings awaiting a review (Customer only)
+router.get(
+  '/users/pending-reviews',
+  authenticate,
+  authorize('customer'),
+  reviewController.getPendingReviews
+);
+
 // Add operator response to review (Operator only)
 router.post(
   '/reviews/:reviewId/response',

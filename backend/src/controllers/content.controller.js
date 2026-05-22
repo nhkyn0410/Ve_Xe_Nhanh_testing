@@ -16,16 +16,29 @@ exports.getBanners = async (req, res) => {
 
     const now = new Date();
 
+    // Hai điều kiện ngày phải cùng đúng → bọc trong $and.
+    // (Trước đây dùng 2 key `$or` trùng nhau nên JS chỉ giữ cái sau →
+    //  bộ lọc startDate bị mất, "ngày bắt đầu hiển thị" không có tác dụng.)
+    // Cũng chấp nhận startDate/endDate = null vì form admin lưu null khi
+    // không đặt lịch.
     const banners = await Banner.find({
       position,
       isActive: true,
-      $or: [
-        { startDate: { $exists: false } },
-        { startDate: { $lte: now } },
-      ],
-      $or: [
-        { endDate: { $exists: false } },
-        { endDate: { $gte: now } },
+      $and: [
+        {
+          $or: [
+            { startDate: { $exists: false } },
+            { startDate: null },
+            { startDate: { $lte: now } },
+          ],
+        },
+        {
+          $or: [
+            { endDate: { $exists: false } },
+            { endDate: null },
+            { endDate: { $gte: now } },
+          ],
+        },
       ],
     }).sort({ order: 1 });
 

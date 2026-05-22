@@ -112,6 +112,26 @@ class ReviewController {
   }
 
   /**
+   * Get current user's completed bookings awaiting a review
+   * GET /api/reviews/users/pending-reviews
+   */
+  async getPendingReviews(req, res) {
+    try {
+      const userId = req.user._id;
+
+      const result = await reviewService.getPendingReviews(userId);
+
+      res.status(200).json(result);
+    } catch (error) {
+      logger.error('Lỗi khi lấy danh sách chờ đánh giá:', error);
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Không thể lấy danh sách chờ đánh giá',
+      });
+    }
+  }
+
+  /**
    * Check if user can review a booking
    * GET /api/bookings/:bookingId/can-review
    */

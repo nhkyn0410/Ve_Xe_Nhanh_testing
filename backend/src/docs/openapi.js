@@ -371,6 +371,7 @@ const components = {
       properties: {
         _id: { type: 'string', example: '661f4a7e07f0c2de0f8e9123' },
         companyName: { type: 'string', example: 'Xe Nhanh Express' },
+        operatorName: { type: 'string', example: 'Vé Xe Nhanh Express' },
         email: { type: 'string', format: 'email', example: 'operator@example.com' },
         phone: { type: 'string', example: '0908888888' },
         taxCode: { type: 'string', example: '0312345678' },
@@ -598,6 +599,7 @@ const components = {
       required: ['companyName', 'email', 'phone', 'password', 'businessLicense', 'taxCode'],
       properties: {
         companyName: { type: 'string', example: 'Xe Nhanh Express' },
+        operatorName: { type: 'string', example: 'Vé Xe Nhanh Express' },
         email: { type: 'string', format: 'email', example: 'operator@example.com' },
         phone: { type: 'string', example: '0908888888' },
         password: { type: 'string', format: 'password', example: 'SecurePass123' },

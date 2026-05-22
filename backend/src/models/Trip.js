@@ -883,7 +883,7 @@ TripSchema.statics.searchAvailableTrips = function (criteria) {
   return this.find(query)
     .populate('routeId')
     .populate('busId')
-    .populate('operatorId', 'companyName averageRating')
+    .populate('operatorId', 'operatorName companyName averageRating')
     .sort({ departureTime: 1 });
 };
 

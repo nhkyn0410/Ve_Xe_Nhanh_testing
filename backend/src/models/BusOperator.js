@@ -15,6 +15,11 @@ const BusOperatorSchema = new mongoose.Schema(
       trim: true,
       maxlength: [200, 'Tên công ty không được quá 200 ký tự'],
     },
+    operatorName: {
+      type: String,
+      trim: true,
+      maxlength: [200, 'Tên hiển thị không được quá 200 ký tự'],
+    },
     email: {
       type: String,
       required: [true, 'Email là bắt buộc'],
@@ -195,6 +200,13 @@ BusOperatorSchema.index({ averageRating: -1 });
 BusOperatorSchema.index({ createdAt: -1 });
 
 // Hash password before saving
+BusOperatorSchema.pre('validate', function (next) {
+  if (!this.operatorName && this.companyName) {
+    this.operatorName = this.companyName;
+  }
+  next();
+});
+
 BusOperatorSchema.pre('save', async function (next) {
   // Only hash password if it's modified or new
   if (!this.isModified('password')) {

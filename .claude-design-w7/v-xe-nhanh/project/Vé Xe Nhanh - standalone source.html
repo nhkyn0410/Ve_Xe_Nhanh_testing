@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<title>Vé Xe Nhanh · Customer redesign</title>
+<meta name="ext-resource-dependency" content="design-system/assets/hero-landscape.jpg" data-resource-id="heroLandscape" />
+<link rel="stylesheet" href="design-system/colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: 'Be Vietnam Pro', system-ui, sans-serif; }
+  #root { min-height: 100vh; }
+  /* Hide outer scrollbars on artboards — design canvas handles overflow */
+  .vxn-screen { overflow: hidden; position: relative; }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#006481">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#006481"/>
+    <g transform="translate(600 360)">
+      <circle r="180" fill="#005472"/>
+      <g transform="translate(-110 -90)">
+        <!-- stylized bird/mountain mark -->
+        <path d="M0 180 L110 0 L220 180 M70 120 L110 50 L150 120 M110 50 V200" stroke="#F3B132" stroke-width="22" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+      </g>
+    </g>
+    <text x="600" y="640" text-anchor="middle" fill="#F3B132" font-family="system-ui,sans-serif" font-weight="700" font-size="56" letter-spacing="6">VÉ XE NHANH</text>
+    <text x="600" y="700" text-anchor="middle" fill="rgba(255,255,255,0.65)" font-family="system-ui,sans-serif" font-size="22" letter-spacing="2">Customer frontend · redesign</text>
+  </svg>
+</template>
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script type="text/babel" src="shared.jsx"></script>
+<script type="text/babel" src="flow-discovery.jsx"></script>
+<script type="text/babel" src="flow-booking.jsx"></script>
+<script type="text/babel" src="flow-tickets.jsx"></script>
+<script type="text/babel" src="flow-account.jsx"></script>
+<script type="text/babel" src="flow-content.jsx"></script>
+<script type="text/babel" src="auth-flow.jsx"></script>
+<script type="text/babel" src="main.jsx"></script>
+</body>
+</html>

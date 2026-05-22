@@ -180,6 +180,18 @@ const EmployeeSchema = new mongoose.Schema(
 // Unique employee code per operator
 EmployeeSchema.index({ operatorId: 1, employeeCode: 1 }, { unique: true });
 
+// Unique contact info per operator
+EmployeeSchema.index({ operatorId: 1, phone: 1 }, { unique: true });
+EmployeeSchema.index(
+  { operatorId: 1, email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      email: { $exists: true, $type: 'string' },
+    },
+  },
+);
+
 // Query by operator, role, and status
 EmployeeSchema.index({ operatorId: 1, role: 1, status: 1 });
 
@@ -191,6 +203,10 @@ EmployeeSchema.index({ phone: 1 });
  * Hash password before saving
  */
 EmployeeSchema.pre('save', async function (next) {
+  if (typeof this.email === 'string' && this.email.trim() === '') {
+    this.email = undefined;
+  }
+
   // Only hash if password is modified
   if (!this.isModified('password')) {
     return next();

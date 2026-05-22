@@ -1,25 +1,32 @@
-import { Outlet } from 'react-router-dom';
+/**
+ * System-admin portal shell — faithful port of the "Trang admin hệ thống"
+ * design package layout (Trang admin he thong.html). Scoped under
+ * .vxn-admin so the design tokens (vxn-admin.css) do not leak into the
+ * customer / operator surfaces.
+ */
+import { useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
+import '../../styles/vxn-admin.css';
 
 const AdminDashboardLayout = () => {
+  const location = useLocation();
+
+  // Match the design's "scroll to top on view change" behaviour.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [location.pathname]);
+
   return (
-    <div className="h-screen flex overflow-hidden bg-gray-50">
-      {/* Sidebar - Fixed width */}
-      <aside className="w-64 flex-shrink-0">
-        <AdminSidebar />
-      </aside>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
+    <div className="vxn-admin" style={{ display: 'flex', minHeight: '100vh' }}>
+      <AdminSidebar />
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <AdminHeader />
-
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6 bg-gradient-to-br from-gray-50 to-blue-50">
+        <div style={{ padding: '28px 32px 64px', minWidth: 0 }}>
           <Outlet />
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 };

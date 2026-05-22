@@ -94,6 +94,14 @@ export const adminOperators = {
   },
 
   /**
+   * Get operator statistics (system-wide)
+   * GET /api/v1/admin/operators/statistics
+   */
+  getStatistics: async () => {
+    return await api.get('/admin/operators/statistics');
+  },
+
+  /**
    * Get operator by ID
    * GET /api/v1/admin/operators/:id
    */
@@ -198,6 +206,142 @@ export const adminComplaints = {
   },
 };
 
+// ============= ROUTE OVERSIGHT (SYSTEM ROUTES) =============
+
+export const adminRoutes = {
+  /**
+   * Get all routes across operators (with live trip stats)
+   * GET /api/v1/admin/routes
+   */
+  getRoutes: async (params) => {
+    return await api.get('/admin/routes', { params });
+  },
+
+  /**
+   * Get system-wide route statistics
+   * GET /api/v1/admin/routes/statistics
+   */
+  getStatistics: async () => {
+    return await api.get('/admin/routes/statistics');
+  },
+};
+
+// ============= TRIP OVERSIGHT (SYSTEM TRIPS) =============
+
+export const adminTrips = {
+  /**
+   * Get all trips across operators (with real occupancy)
+   * GET /api/v1/admin/trips
+   */
+  getTrips: async (params) => {
+    return await api.get('/admin/trips', { params });
+  },
+
+  /**
+   * Get system-wide trip statistics
+   * GET /api/v1/admin/trips/statistics
+   */
+  getStatistics: async () => {
+    return await api.get('/admin/trips/statistics');
+  },
+};
+
+// ============= PAYMENT OVERSIGHT (SYSTEM TRANSACTIONS) =============
+
+export const adminPayments = {
+  /**
+   * Get all payments across operators (real amounts/refunds)
+   * GET /api/v1/admin/payments
+   */
+  getPayments: async (params) => {
+    return await api.get('/admin/payments', { params });
+  },
+
+  /**
+   * Get system-wide payment statistics
+   * GET /api/v1/admin/payments/statistics
+   */
+  getStatistics: async () => {
+    return await api.get('/admin/payments/statistics');
+  },
+};
+
+// ============= REVIEW MODERATION (SYSTEM REVIEWS) =============
+
+export const adminReviews = {
+  /**
+   * Get all reviews across operators (moderation queue)
+   * GET /api/v1/admin/reviews
+   */
+  getReviews: async (params) => {
+    return await api.get('/admin/reviews', { params });
+  },
+
+  /**
+   * Get system-wide review statistics + rating distribution
+   * GET /api/v1/admin/reviews/statistics
+   */
+  getStatistics: async () => {
+    return await api.get('/admin/reviews/statistics');
+  },
+
+  /**
+   * Publish (approve) a review
+   * PUT /api/v1/admin/reviews/:id/publish
+   */
+  publish: async (reviewId) => {
+    return await api.put(`/admin/reviews/${reviewId}/publish`);
+  },
+
+  /**
+   * Unpublish (hide) a review
+   * PUT /api/v1/admin/reviews/:id/unpublish
+   */
+  unpublish: async (reviewId) => {
+    return await api.put(`/admin/reviews/${reviewId}/unpublish`);
+  },
+
+  /**
+   * Clear the "reported" flag on a review
+   * PUT /api/v1/admin/reviews/:id/clear-report
+   */
+  clearReport: async (reviewId) => {
+    return await api.put(`/admin/reviews/${reviewId}/clear-report`);
+  },
+};
+
+// ============= PLATFORM VOUCHERS =============
+
+export const adminVouchers = {
+  getVouchers: async (params) => {
+    return await api.get('/admin/vouchers', { params });
+  },
+
+  getStatistics: async () => {
+    return await api.get('/admin/vouchers/statistics');
+  },
+
+  create: async (data) => {
+    return await api.post('/admin/vouchers', data);
+  },
+
+  update: async (id, data) => {
+    return await api.put(`/admin/vouchers/${id}`, data);
+  },
+
+  delete: async (id) => {
+    return await api.delete(`/admin/vouchers/${id}`);
+  },
+
+  activate: async (id) => {
+    return await api.put(`/admin/vouchers/${id}/activate`);
+  },
+
+  deactivate: async (id) => {
+    return await api.put(`/admin/vouchers/${id}/deactivate`);
+  },
+};
+
 // ============= CONTENT MANAGEMENT (UC-24) =============
 
 export const adminContent = {
@@ -242,4 +386,9 @@ export default {
   reports: adminReports,
   complaints: adminComplaints,
   content: adminContent,
+  routes: adminRoutes,
+  trips: adminTrips,
+  payments: adminPayments,
+  reviews: adminReviews,
+  vouchers: adminVouchers,
 };

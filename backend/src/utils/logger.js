@@ -18,6 +18,14 @@ if (!fs.existsSync(logsDir)) {
 const logFile = path.join(logsDir, process.env.LOG_FILE || 'app.log');
 const errorLogFile = path.join(logsDir, 'error.log');
 
+// Ensure log file directories exist (in case LOG_FILE contains a subfolder)
+[logFile, errorLogFile].forEach(file => {
+  const dir = path.dirname(file);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
+
 const timestamp = () =>
   new Date().toLocaleString('en-GB', { hour12: false });
 

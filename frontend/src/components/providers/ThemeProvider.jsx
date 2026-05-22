@@ -1,4 +1,4 @@
-import { ConfigProvider, theme } from 'antd';
+import { ConfigProvider } from 'antd';
 import { antdTheme } from '../../styles/design-system';
 import viVN from 'antd/locale/vi_VN';
 

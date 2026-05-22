@@ -30,6 +30,24 @@ const getVoucherService = () => {
  * Handles payment operations and integrates with payment gateways
  */
 class PaymentService {
+  static async dispatchTicketNotifications(bookingId, bookingCode) {
+    const TicketServiceClass = getTicketService();
+    try {
+      const ticket = await TicketServiceClass.generateTicket(bookingId);
+      logger.info('Vé được tạo/kiểm tra để gửi thông báo:', bookingCode);
+
+      const notificationResult = await TicketServiceClass.sendTicketNotifications(ticket._id);
+      logger.info('Đã gửi thông báo vé:', notificationResult);
+      return notificationResult;
+    } catch (error) {
+      logger.error('Tạo vé/thông báo không thành công:', error);
+      return {
+        email: { sent: false, error: error.message },
+        sms: { sent: false, error: error.message },
+      };
+    }
+  }
+
   /**
    * Create payment for a booking
    *
@@ -154,7 +172,7 @@ class PaymentService {
       if (booking.voucherId) {
         try {
           const VoucherServiceClass = getVoucherService();
-          await VoucherServiceClass.applyToBooking(booking.voucherId);
+          await VoucherServiceClass.applyToBooking(booking.voucherId, booking.customerId);
         } catch (error) {
           logger.error('Không thể áp dụng voucher:', error.message);
         }
@@ -176,24 +194,13 @@ class PaymentService {
         }
       }
 
-      // Generate digital ticket in background
-      const TicketServiceClass = getTicketService();
-      TicketServiceClass.generateTicket(booking._id)
-        .then((ticket) => {
-          logger.info('Vé được tạo để đặt vé bằng tiền mặt:', booking.bookingCode);
-          return TicketServiceClass.sendTicketNotifications(ticket._id);
-        })
-        .then((notificationResult) => {
-          logger.info('Đã gửi thông báo vé:', notificationResult);
-        })
-        .catch((error) => {
-          logger.error('Tạo vé không thành công:', error);
-        });
+      // Generate digital ticket and send notifications.
+      await this.dispatchTicketNotifications(booking._id, booking.bookingCode);
     }
 
     // Populate payment details
     await payment.populate('bookingId');
-    await payment.populate('operatorId', 'companyName email phone');
+    await payment.populate('operatorId', 'operatorName companyName email phone');
 
     return {
       payment,
@@ -241,6 +248,13 @@ class PaymentService {
 
     // Check if payment already processed
     if (payment.status === 'completed') {
+      const processedBooking = payment.bookingId;
+      if (processedBooking?._id) {
+        // Idempotent safety: generateTicket returns existing ticket and sendTicketNotifications
+        // skips channels already marked sent.
+        await this.dispatchTicketNotifications(processedBooking._id, processedBooking.bookingCode);
+      }
+
       return {
         success: true,
         message: 'Thanh toán đã được xử lý trước đó',
@@ -341,25 +355,24 @@ class PaymentService {
           booking.confirm();
         }
 
+        // Apply voucher after the payment is successfully captured. This is
+        // intentionally inside the non-idempotent branch guarded by
+        // payment.status !== completed above.
+        if (booking.voucherId) {
+          try {
+            const VoucherServiceClass = getVoucherService();
+            await VoucherServiceClass.applyToBooking(booking.voucherId, booking.customerId);
+          } catch (error) {
+            logger.error('Không thể áp dụng voucher:', error.message);
+          }
+        }
+
         await booking.save();
         logger.info('Đặt chỗ được cập nhật thành công');
 
-        // Generate digital ticket in background (UC-7)
-        const TicketServiceClass = getTicketService();
-        TicketServiceClass.generateTicket(booking._id)
-          .then((ticket) => {
-            logger.info('Vé được tạo để đặt chỗ:', booking.bookingCode);
-            // Send ticket notifications in background
-            return TicketServiceClass.sendTicketNotifications(ticket._id);
-          })
-          .then((notificationResult) => {
-            logger.info('Đã gửi thông báo vé:', notificationResult);
-          })
-          .catch((error) => {
-            logger.error('Tạo vé/thông báo không thành công:', error);
-            // Don't fail the payment if ticket generation fails
-            // Admin can retry ticket generation manually
-          });
+        // Generate digital ticket and send notifications (UC-7).
+        // Don't fail the payment if ticket generation/notification fails; resend can retry.
+        await this.dispatchTicketNotifications(booking._id, booking.bookingCode);
       }
 
       logger.info('VNPay callback xử lý thành công!');
@@ -388,7 +401,7 @@ class PaymentService {
     const payment = await Payment.findById(paymentId)
       .populate('bookingId')
       .populate('customerId', 'fullName email phone')
-      .populate('operatorId', 'companyName email phone');
+      .populate('operatorId', 'operatorName companyName email phone');
 
     if (!payment) {
       throw new Error('Không tìm thấy thanh toán');
@@ -407,7 +420,7 @@ class PaymentService {
     const payment = await Payment.findOne({ paymentCode })
       .populate('bookingId')
       .populate('customerId', 'fullName email phone')
-      .populate('operatorId', 'companyName email phone');
+      .populate('operatorId', 'operatorName companyName email phone');
 
     if (!payment) {
       throw new Error('Không tìm thấy thanh toán');

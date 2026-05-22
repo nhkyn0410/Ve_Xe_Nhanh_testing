@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { getRedisClient } = require('../config/redis');
+const { sendEmail } = require('../config/email');
 const logger = require('../utils/logger');
 
 /**
@@ -105,39 +106,26 @@ class OTPService {
    * @param {string} purpose - Purpose of OTP (e.g., 'guest_booking')
    */
   static async sendOTPEmail(email, otp, purpose = 'guest_booking') {
-    // In production, integrate with email service (SendGrid, AWS SES, etc.)
-    // For now, just log the OTP
-    logger.info(`Đang gửi OTP đến ${email}:`);
-    logger.info(`OTP Code: ${otp}`);
-    logger.info(`Purpose: ${purpose}`);
-    logger.info(`---`);
+    logger.info(`Đang gửi OTP email đến ${email} cho mục đích ${purpose}`);
 
-    // TODO: Implement actual email sending
-    // Example with nodemailer:
-    /*
-    const nodemailer = require('nodemailer');
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-      },
-    });
-
-    const mailOptions = {
-      from: process.env.EMAIL_FROM,
+    await sendEmail({
       to: email,
       subject: 'Mã xác thực Vé xe nhanh',
       html: `
-        <h2>Mã xác thực của bạn</h2>
-        <p>Mã OTP của bạn là: <strong>${otp}</strong></p>
-        <p>Mã này có hiệu lực trong 5 phút.</p>
-        <p>Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #0ea5e9;">Mã xác thực của bạn</h2>
+          <p>Mã OTP của bạn là:</p>
+          <div style="background: #f1f5f9; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <strong style="color: #0ea5e9; font-size: 32px; letter-spacing: 5px;">${otp}</strong>
+          </div>
+          <p style="color: #dc2626;">Mã này có hiệu lực trong 5 phút.</p>
+          <p style="color: #666; font-size: 14px;">
+            Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.
+          </p>
+        </div>
       `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    */
+      text: `Mã OTP Vé xe nhanh của bạn là ${otp}. Mã có hiệu lực trong 5 phút.`,
+    });
 
     return {
       success: true,

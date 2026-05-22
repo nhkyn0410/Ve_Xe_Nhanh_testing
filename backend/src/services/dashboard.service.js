@@ -354,6 +354,7 @@ class DashboardService {
     });
 
     let groupBy;
+    let dateFormat;
 
     switch (period) {
       case 'day':

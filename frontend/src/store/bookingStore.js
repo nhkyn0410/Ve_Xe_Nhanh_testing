@@ -13,6 +13,8 @@ const useBookingStore = create(
         fromCity: '',
         toCity: '',
         date: null,
+        fromDate: null,
+        toDate: null,
         passengers: 1,
       },
 
@@ -118,6 +120,8 @@ const useBookingStore = create(
             fromCity: '',
             toCity: '',
             date: null,
+            fromDate: null,
+            toDate: null,
             passengers: 1,
           },
         }),

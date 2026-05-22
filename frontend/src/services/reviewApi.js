@@ -52,6 +52,14 @@ export const getMyReviews = async (params = {}) => {
   return api.get(`/reviews/users/my-reviews${queryString ? `?${queryString}` : ''}`);
 };
 
+/**
+ * Get the current user's completed bookings awaiting a review
+ * @returns {Promise<Object>} { success, pending: [...], total }
+ */
+export const getPendingReviews = async () => {
+  return api.get('/reviews/users/pending-reviews');
+};
+
 // ============================================================================
 // Public Review Queries
 // ============================================================================
@@ -119,6 +127,7 @@ export default {
   canReview,
   sendReviewInvitation,
   getMyReviews,
+  getPendingReviews,
   getTripReviews,
   getOperatorReviews,
   addOperatorResponse,

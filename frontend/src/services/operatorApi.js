@@ -14,6 +14,10 @@ export const operatorAuth = {
   updateProfile: (data) => api.put('/operators/me/profile', data),
 };
 
+export const publicOperatorsApi = {
+  getProfile: (id) => api.get(`/operators/${id}/profile`),
+};
+
 // ==================== Dashboard ====================
 
 export const dashboardApi = {
@@ -49,6 +53,17 @@ export const routesApi = {
   // Dropoff points
   addDropoffPoint: (id, data) => api.post(`/operators/routes/${id}/dropoff-points`, data),
   removeDropoffPoint: (id, pointId) => api.delete(`/operators/routes/${id}/dropoff-points/${pointId}`),
+};
+
+// ==================== Stops ====================
+
+export const stopsApi = {
+  // Stop point catalog
+  getStops: (params = {}) => api.get('/operators/stops', { params }),
+  getById: (id) => api.get(`/operators/stops/${id}`),
+  create: (data) => api.post('/operators/stops', data),
+  update: (id, data) => api.put(`/operators/stops/${id}`, data),
+  delete: (id) => api.delete(`/operators/stops/${id}`),
 };
 
 // ==================== Buses ====================
@@ -143,6 +158,20 @@ export const tripsApi = {
   getStatistics: (params = {}) => api.get('/operators/trips/statistics', { params }),
 };
 
+// ==================== Payments / Transactions ====================
+
+export const paymentsApi = {
+  // Get all payments for the authenticated operator
+  getOperatorPayments: (params = {}) => api.get('/operators/payments', { params }),
+
+  // Payment statistics
+  getStatistics: (params = {}) => api.get('/operators/payments/statistics', { params }),
+
+  // Process a refund for a payment
+  processRefund: (paymentId, data) =>
+    api.post(`/operators/payments/${paymentId}/refund`, data),
+};
+
 // ==================== Seat Layout Templates ====================
 
 export const seatLayoutApi = {
@@ -166,10 +195,13 @@ export const seatLayoutApi = {
 // Export all APIs
 export default {
   auth: operatorAuth,
+  publicOperators: publicOperatorsApi,
   dashboard: dashboardApi,
   routes: routesApi,
+  stops: stopsApi,
   buses: busesApi,
   employees: employeesApi,
   trips: tripsApi,
+  payments: paymentsApi,
   seatLayout: seatLayoutApi,
 };

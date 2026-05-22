@@ -11,13 +11,22 @@ class NotificationService {
   constructor() {
     // Email transporter setup with error handling
     try {
+      const emailService = process.env.EMAIL_SERVICE;
+      const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+      const smtpPassword = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || process.env.EMAIL_PASSWORD;
+      const smtpHost = process.env.SMTP_HOST ||
+        (emailService === 'gmail' || process.env.EMAIL_USER ? 'smtp.gmail.com' : 'localhost');
+
       this.emailTransporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        host: smtpHost,
         port: process.env.SMTP_PORT || 587,
         secure: false, // true for 465, false for other ports
         auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+          user: smtpUser,
+          pass: smtpPassword,
+        },
+        tls: {
+          rejectUnauthorized: false,
         },
       });
     } catch (error) {
@@ -28,8 +37,13 @@ class NotificationService {
     // SMS service (singleton instance)
     this.smsService = smsService;
 
-    this.fromEmail = process.env.FROM_EMAIL || 'noreply@vexenhanh.com';
-    this.fromName = process.env.FROM_NAME || 'Vé xe nhanh';
+    this.fromEmail =
+      process.env.FROM_EMAIL ||
+      process.env.EMAIL_FROM ||
+      process.env.EMAIL_USER ||
+      process.env.SMTP_USER ||
+      'noreply@vexenhanh.com';
+    this.fromName = process.env.FROM_NAME || process.env.EMAIL_FROM_NAME || 'Vé xe nhanh';
     this.emailEnabled = process.env.EMAIL_ENABLED !== 'false'; // Default enabled
     this.smsEnabled = process.env.SMS_ENABLED === 'true';
   }

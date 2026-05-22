@@ -15,10 +15,11 @@ const { protectTripManager, authorizeTripManager } = require('../middleware/trip
 
 // Validation middleware
 const validateLogin = [
-  body('username')
-    .notEmpty()
-    .withMessage('Tên đăng nhập là bắt buộc')
-    .trim(),
+  body()
+    .custom((value) => Boolean(value.username || value.employeeCode))
+    .withMessage('Mã nhân viên là bắt buộc'),
+  body('username').optional().trim(),
+  body('employeeCode').optional().trim(),
   body('password')
     .notEmpty()
     .withMessage('Mật khẩu là bắt buộc')
@@ -32,6 +33,11 @@ const validateTripId = [
 
 const validateVerifyQR = [
   body('qrCodeData').notEmpty().withMessage('Dữ liệu QR code là bắt buộc'),
+  body('confirmPayment')
+    .optional()
+    .isBoolean()
+    .withMessage('Xác nhận thanh toán phải là boolean')
+    .toBoolean(),
 ];
 
 /**

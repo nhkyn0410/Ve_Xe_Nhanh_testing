@@ -1,82 +1,594 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AutoComplete, Button, DatePicker, Form, Select } from 'antd';
 import {
-  Card,
-  Form,
-  Input,
-  DatePicker,
-  Button,
-  Row,
-  Col,
-  Typography,
-  Statistic,
-  AutoComplete,
-} from 'antd';
-import {
-  SearchOutlined,
-  SwapOutlined,
+  ArrowRightOutlined,
   CalendarOutlined,
+  CarOutlined,
+  DownOutlined,
   EnvironmentOutlined,
-  SafetyOutlined,
-  ThunderboltOutlined,
-  DollarOutlined,
-  StarOutlined,
-  TrophyOutlined,
-  GiftOutlined,
-  ExclamationCircleOutlined,
   FileTextOutlined,
-  CheckCircleOutlined,
+  GiftOutlined,
+  PhoneOutlined,
+  QrcodeOutlined,
+  ReloadOutlined,
+  SafetyCertificateOutlined,
+  SearchOutlined,
+  StarFilled,
+  StarOutlined,
+  SwapOutlined,
+  TagsOutlined,
+  TeamOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { toast } from 'react-hot-toast';
+import heroImage from '../assets/brand/hero-landscape.jpg';
+import danangHueImage from '../assets/img/Da Nang-Hue.jpg';
+import hanoiHaLongImage from '../assets/img/Ha Noi-Ha Long.jpg';
+import hanoiNinhBinhImage from '../assets/img/HA NOI-NINH BINH.png';
+import hanoiSapaImage from '../assets/img/HA NOI-SAPA.jpg';
+import hcmDaLatImage from '../assets/img/TH HCM-DA LAT.png';
+import hcmNhaTrangImage from '../assets/img/TP HCM-NHA TRANG.jpg';
+import hcmVungTauImage from '../assets/img/TP HCM-VUNG TAU.png';
+import CustomerShell from '../components/customer/CustomerShell';
+import ContentBanners from '../components/customer/ContentBanners';
 import useBookingStore from '../store/bookingStore';
-import CustomerLayout from '../components/customer/CustomerLayout';
-import PopularRoutes from '../components/ui/PopularRoutes';
 
-const { Title, Text, Paragraph } = Typography;
+const cityOptions = [
+  'Hà Nội',
+  'TP. Hồ Chí Minh',
+  'Đà Nẵng',
+  'Hải Phòng',
+  'Cần Thơ',
+  'Nha Trang',
+  'Huế',
+  'Vũng Tàu',
+  'Đà Lạt',
+  'Quy Nhơn',
+  'Phan Thiết',
+  'Hạ Long',
+  'Sapa',
+  'Phú Quốc',
+  'Buôn Ma Thuột',
+];
+
+const popularRoutesFallback = [
+  {
+    from: 'TP. Hồ Chí Minh',
+    to: 'Đà Lạt',
+    km: 308,
+    hours: '7 tiếng',
+    fromPrice: 280000,
+    rating: '4.8',
+    image: hcmDaLatImage,
+  },
+  {
+    from: 'Hà Nội',
+    to: 'Sapa',
+    km: 320,
+    hours: '5 tiếng',
+    fromPrice: 350000,
+    rating: '4.8',
+    image: hanoiSapaImage,
+  },
+  {
+    from: 'Hà Nội',
+    to: 'Hạ Long',
+    km: 165,
+    hours: '3 tiếng',
+    fromPrice: 180000,
+    rating: '4.7',
+    image: hanoiHaLongImage,
+  },
+  {
+    from: 'TP. Hồ Chí Minh',
+    to: 'Vũng Tàu',
+    km: 125,
+    hours: '2 tiếng',
+    fromPrice: 120000,
+    rating: '4.6',
+    image: hcmVungTauImage,
+  },
+  {
+    from: 'Đà Nẵng',
+    to: 'Huế',
+    km: 100,
+    hours: '2 tiếng',
+    fromPrice: 110000,
+    rating: '4.6',
+    image: danangHueImage,
+  },
+  {
+    from: 'TP. Hồ Chí Minh',
+    to: 'Nha Trang',
+    km: 440,
+    hours: '9 tiếng',
+    fromPrice: 420000,
+    rating: '4.7',
+    image: hcmNhaTrangImage,
+  },
+  {
+    from: 'Hà Nội',
+    to: 'Ninh Bình',
+    km: 95,
+    hours: '2 tiếng',
+    fromPrice: 130000,
+    rating: '4.7',
+    image: hanoiNinhBinhImage,
+  },
+];
+
+const operatorFallback = [
+  { name: 'Hà Linh Express', short: 'HL', color: '#E89B26', rating: 4.8, reviews: 12840 },
+  { name: 'Phương Nam Travel', short: 'PN', color: '#006481', rating: 4.6, reviews: 8930 },
+  { name: 'Tâm Hạnh Limousine', short: 'TH', color: '#1D4ED8', rating: 4.7, reviews: 5210 },
+  { name: 'Hoàng Long Coach', short: 'HL', color: '#00613D', rating: 4.5, reviews: 21405 },
+  { name: 'Mai Hương Sleeper', short: 'MH', color: '#D18A1E', rating: 4.4, reviews: 3204 },
+];
+
+const valueProps = [
+  {
+    icon: SafetyCertificateOutlined,
+    title: 'Vé điện tử có QR',
+    body: 'Lên xe quét QR, không cần in giấy.',
+  },
+  {
+    icon: ReloadOutlined,
+    title: 'Đổi & hủy linh hoạt',
+    body: 'Hoàn 90% trước 24h. Đổi chuyến miễn phí.',
+  },
+  {
+    icon: StarOutlined,
+    title: 'Tích điểm thân thiết',
+    body: '1 điểm = 1.000đ giảm. Hạng Gold giảm 10%.',
+  },
+  { icon: PhoneOutlined, title: 'Hỗ trợ 24/7', body: 'CSKH tiếng Việt qua app, Zalo và hotline.' },
+];
+
+const homeGuidePosts = [
+  {
+    title: 'Mẹo chọn ghế trên xe giường nằm',
+    category: 'Hành trình',
+    image:
+      'https://res.anvui.vn/dwi5f2bje/image/upload/v1746516142/news/images/1746515715/zwnhtezvucp2eaahuo8c.jpg',
+  },
+  {
+    title: 'Top 8 quán phở bò trứ danh dọc QL1 Bắc — Trung',
+    category: 'Du lịch',
+    image: 'https://store.longphuong.vn/wp-content/uploads/2023/02/bat-to-dung-pho-su-1.jpg',
+  },
+  {
+    title: 'Quy định mới về hành lý xe khách 2026',
+    category: 'Chính sách',
+    image:
+      'https://xekhachtuanyen.vn/wp-content/uploads/2023/06/Chuan-bi-hanh-ly-khi-di-xe-khach-duong-dai.jpg',
+  },
+];
+
+const passengerOptions = Array.from({ length: 6 }, (_, index) => {
+  const value = index + 1;
+  return {
+    value,
+    label: `${value} người lớn`,
+  };
+});
+
+const formatCurrency = (value) => `${value.toLocaleString('vi-VN')}đ`;
+
+const UtilityPills = () => (
+  <div className="absolute right-4 top-4 z-20 hidden items-center gap-2 sm:flex lg:right-6 lg:top-5">
+    <div className="inline-flex h-9 items-center gap-2 rounded-full bg-white/95 px-3.5 text-[13px] font-medium text-vxn-ink shadow-sm backdrop-blur">
+      <PhoneOutlined className="text-vxn-teal-700" />
+      CSKH 1900 6067
+    </div>
+    <button
+      type="button"
+      className="inline-flex h-9 items-center gap-2 rounded-full border-0 bg-vxn-teal-900/75 px-3.5 text-[13px] font-medium text-white backdrop-blur"
+    >
+      <span className="grid h-[14px] w-[22px] place-items-center rounded-sm bg-[#DA251D] text-[10px] text-[#FFCD00]">
+        ★
+      </span>
+      VI
+      <DownOutlined className="text-[10px]" />
+    </button>
+  </div>
+);
+
+const SearchFieldShell = ({ icon: Icon, label, children, last = false }) => (
+  <div
+    className={`flex min-h-[92px] flex-col justify-center gap-1 bg-white px-5 py-3 lg:min-h-[112px] ${
+      last ? '' : 'border-b border-vxn-border lg:border-b-0 lg:border-r'
+    }`}
+  >
+    <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.04em] text-vxn-fg-4">
+      <Icon className="text-[12px] text-vxn-teal-700" />
+      {label}
+    </div>
+    {children}
+  </div>
+);
+
+const SearchOverlayCard = ({ form, initialValues, loading, onSearch, onSwap, onTabAction }) => (
+  <div className="vxn-home-search flex flex-col rounded-2xl border border-white/60 bg-white/[0.98] p-2 shadow-[0_30px_60px_-20px_rgba(0,40,60,0.40)] backdrop-blur lg:min-h-[312px]">
+    <div className="flex border-b border-vxn-border lg:min-h-[58px]">
+      {[
+        { key: 'buy', label: 'Mua vé', icon: FileTextOutlined },
+        { key: 'lookup', label: 'Tra cứu vé', icon: QrcodeOutlined },
+        { key: 'operators', label: 'Theo nhà xe', icon: CarOutlined },
+      ].map((item, index) => {
+        const Icon = item.icon;
+        const active = index === 0;
+
+        return (
+          <button
+            key={item.key}
+            type="button"
+            className={`mb-[-1px] inline-flex items-center gap-2 border-0 border-b-2 bg-transparent px-4 py-3 text-[14px] transition sm:px-6 lg:px-7 ${
+              active
+                ? 'border-vxn-teal-700 font-semibold text-vxn-teal-800'
+                : 'border-transparent font-medium text-vxn-fg-3 hover:text-vxn-teal-800'
+            }`}
+            onClick={() => onTabAction(item.key)}
+          >
+            <Icon className="text-[15px]" />
+            {item.label}
+          </button>
+        );
+      })}
+    </div>
+
+    <Form
+      form={form}
+      initialValues={initialValues}
+      onFinish={onSearch}
+      className="flex flex-1 flex-col p-4 sm:p-5 lg:p-7"
+    >
+      <div className="grid overflow-hidden rounded-xl border border-vxn-border bg-white lg:grid-cols-[1fr_56px_1fr_1fr_1fr]">
+        <SearchFieldShell icon={EnvironmentOutlined} label="Điểm đi">
+          <Form.Item
+            name="fromCity"
+            rules={[{ required: true, message: 'Vui lòng nhập điểm đi!' }]}
+          >
+            <AutoComplete
+              options={cityOptions.map((city) => ({ value: city }))}
+              filterOption={(inputValue, option) =>
+                option.value.toLowerCase().includes(inputValue.toLowerCase())
+              }
+              placeholder="Chọn điểm đi"
+            />
+          </Form.Item>
+        </SearchFieldShell>
+
+        <div className="grid min-h-[56px] place-items-center border-b border-vxn-border bg-white lg:min-h-[112px] lg:border-b-0 lg:border-r">
+          <button
+            type="button"
+            className="grid h-[38px] w-[38px] place-items-center rounded-full border border-vxn-border bg-white text-vxn-fg-2 transition hover:border-vxn-teal-600 hover:text-vxn-teal-800"
+            onClick={onSwap}
+            aria-label="Đổi điểm đi và điểm đến"
+          >
+            <SwapOutlined />
+          </button>
+        </div>
+
+        <SearchFieldShell icon={EnvironmentOutlined} label="Điểm đến">
+          <Form.Item name="toCity" rules={[{ required: true, message: 'Vui lòng nhập điểm đến!' }]}>
+            <AutoComplete
+              options={cityOptions.map((city) => ({ value: city }))}
+              filterOption={(inputValue, option) =>
+                option.value.toLowerCase().includes(inputValue.toLowerCase())
+              }
+              placeholder="Chọn điểm đến"
+            />
+          </Form.Item>
+        </SearchFieldShell>
+
+        <SearchFieldShell icon={CalendarOutlined} label="Ngày đi">
+          <Form.Item name="date" rules={[{ required: true, message: 'Vui lòng chọn ngày!' }]}>
+            <DatePicker
+              format="DD/MM/YYYY"
+              disabledDate={(current) => current && current < dayjs().startOf('day')}
+              suffixIcon={null}
+              allowClear={false}
+            />
+          </Form.Item>
+        </SearchFieldShell>
+
+        <SearchFieldShell icon={UserOutlined} label="Số khách" hint="Tối đa 10 vé/đặt" last>
+          <Form.Item
+            name="passengers"
+            rules={[{ required: true, message: 'Vui lòng chọn số khách!' }]}
+          >
+            <Select options={passengerOptions} suffixIcon={null} />
+          </Form.Item>
+        </SearchFieldShell>
+      </div>
+
+      <div className="mt-[18px] flex flex-col gap-4 lg:mt-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFE9C4] px-3 py-1.5 text-xs font-medium text-vxn-saffron-700">
+            <GiftOutlined />
+            MÃ HE2026 · GIẢM 12%
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-vxn-bg-cloud px-3 py-1.5 text-xs font-medium text-vxn-fg-2">
+            <TeamOutlined />
+            HÀNH LÝ TRẢ TRƯỚC
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-vxn-bg-cloud px-3 py-1.5 text-xs font-medium text-vxn-fg-2">
+            <ReloadOutlined />
+            ĐỔI/HỦY MIỄN PHÍ
+          </span>
+        </div>
+
+        <Button
+          type="primary"
+          htmlType="submit"
+          loading={loading}
+          icon={<SearchOutlined />}
+          className="h-[52px] min-w-[176px] rounded-md border-0 bg-vxn-teal-700 px-9 text-base font-semibold shadow-[0_4px_6px_-4px_rgba(0,100,129,0.30)] hover:!bg-vxn-teal-800"
+        >
+          Tìm chuyến
+        </Button>
+      </div>
+    </Form>
+  </div>
+);
+
+const RouteCardLarge = ({ route, onFill, onSubmit }) => (
+  <div
+    className="relative flex min-h-[280px] overflow-hidden rounded-2xl bg-cover bg-[40%_45%] p-7 text-white"
+    style={{
+      backgroundImage: `linear-gradient(180deg, rgba(0,40,60,.10) 0%, rgba(0,40,60,.76) 100%), url(${route.image || heroImage})`,
+    }}
+  >
+    <div className="relative z-10 flex w-full flex-col justify-between">
+      <div className="flex items-center gap-2">
+        <span className="rounded-full bg-[#FFE9C4] px-3 py-1 text-[11px] font-semibold text-vxn-saffron-700">
+          NỔI BẬT
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-black/30 px-3 py-1 text-[11px] font-semibold text-white backdrop-blur">
+          <StarFilled className="text-vxn-saffron-500" />
+          {route.rating}
+        </span>
+      </div>
+
+      <div>
+        <div className="mb-1 text-[13px] font-medium text-white/[0.85]">
+          {route.km} km · {route.hours} · giường nằm & limousine
+        </div>
+        <button
+          type="button"
+          className="mb-4 flex flex-wrap items-baseline gap-3 border-0 bg-transparent p-0 text-left text-white"
+          onClick={() => onFill(route)}
+        >
+          <span className="text-[28px] font-bold leading-tight tracking-normal">{route.from}</span>
+          <ArrowRightOutlined className="text-lg text-vxn-saffron-500" />
+          <span className="text-[28px] font-bold leading-tight tracking-normal">{route.to}</span>
+        </button>
+
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <div className="text-[12px] text-white/70">Từ</div>
+            <div className="text-[22px] font-bold text-vxn-saffron-500">
+              {formatCurrency(route.fromPrice)}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="inline-flex h-10 items-center gap-2 rounded-md border-0 bg-vxn-saffron-600 px-4 text-sm font-semibold text-white transition hover:bg-vxn-saffron-700"
+            onClick={() => onSubmit(route)}
+          >
+            Đặt vé ngay
+            <ArrowRightOutlined className="text-xs" />
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const getSmallRouteCardSizeClass = (hasImage, compact) => {
+  if (hasImage) {
+    return compact ? 'min-h-[190px] p-5 text-white' : 'min-h-[280px] p-5 text-white';
+  }
+
+  if (compact) {
+    return 'gap-2 p-4';
+  }
+
+  return 'min-h-[130px] gap-3 p-5';
+};
+
+const RouteCardSmall = ({ route, compact = false, onSubmit }) => {
+  const hasImage = Boolean(route.image);
+  const sizeClass = getSmallRouteCardSizeClass(hasImage, compact);
+
+  return (
+    <button
+      type="button"
+      className={`relative flex flex-col overflow-hidden rounded-xl border border-vxn-border bg-white text-left transition hover:border-vxn-teal-300 hover:shadow-md ${sizeClass}`}
+      style={
+        hasImage
+          ? {
+              backgroundImage: `linear-gradient(180deg, rgba(0,40,60,.08) 0%, rgba(0,40,60,.48) 44%, rgba(0,40,60,.84) 100%), url(${route.image})`,
+              backgroundPosition: 'center',
+              backgroundSize: 'cover',
+            }
+          : undefined
+      }
+      onClick={() => onSubmit(route)}
+    >
+      <div className="relative z-10 flex flex-1 flex-col gap-2">
+        {hasImage ? (
+          <span className="w-fit rounded-full bg-black/30 px-3 py-1 text-[11px] font-semibold text-white backdrop-blur">
+            <StarFilled className="mr-1 text-vxn-saffron-500" />
+            {route.rating}
+          </span>
+        ) : null}
+        <div className={`flex flex-col gap-2 ${hasImage ? 'mt-auto' : 'flex-1'}`}>
+          <div
+            className={`flex items-center gap-2 text-[17px] font-semibold leading-snug ${
+              hasImage ? 'text-white' : 'text-vxn-ink'
+            }`}
+          >
+            <span className="truncate">{route.from}</span>
+            <ArrowRightOutlined
+              className={`shrink-0 text-[13px] ${hasImage ? 'text-vxn-saffron-500' : 'text-vxn-fg-5'}`}
+            />
+            <span className="truncate">{route.to}</span>
+          </div>
+          <div className={`text-[13px] ${hasImage ? 'text-white/80' : 'text-vxn-fg-5'}`}>
+            {route.km} km · {route.hours}
+          </div>
+          <div
+            className={`${hasImage ? 'mt-3' : 'mt-auto'} flex items-baseline justify-between gap-3`}
+          >
+            <div>
+              <span className={`text-[12px] ${hasImage ? 'text-white/70' : 'text-vxn-fg-5'}`}>
+                Từ{' '}
+              </span>
+              <span className="text-[17px] font-bold text-vxn-saffron-700">
+                {formatCurrency(route.fromPrice)}
+              </span>
+            </div>
+            <span
+              className={`whitespace-nowrap text-[13px] font-medium ${
+                hasImage ? 'text-white' : 'text-vxn-teal-800'
+              }`}
+            >
+              Xem chuyến →
+            </span>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+};
+
+const ValueProps = () => (
+  <section className="bg-vxn-bg-soft px-4 py-8 lg:px-14">
+    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4 xl:gap-8">
+      {valueProps.map((item) => {
+        const Icon = item.icon;
+
+        return (
+          <div key={item.title} className="flex gap-3.5">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-vxn-border bg-white text-vxn-teal-700">
+              <Icon className="text-[21px]" />
+            </div>
+            <div>
+              <div className="mb-1 text-[16px] font-semibold text-vxn-ink">{item.title}</div>
+              <div className="text-[14px] leading-5 text-vxn-fg-3">{item.body}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </section>
+);
+
+const OperatorsSection = ({ navigate }) => (
+  <section className="bg-white px-4 py-12 lg:px-14">
+    <div className="mb-5 flex items-end justify-between gap-4">
+      <h2 className="m-0 text-[24px] font-semibold leading-tight text-vxn-ink">Nhà xe đối tác</h2>
+      <button
+        type="button"
+        className="border-0 bg-transparent text-[14px] font-medium text-vxn-teal-800"
+        onClick={() => navigate('/trips')}
+      >
+        Xem cả 218 nhà xe →
+      </button>
+    </div>
+
+    <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {operatorFallback.map((operator) => (
+        <button
+          key={operator.name}
+          type="button"
+          className="flex flex-col gap-2.5 rounded-xl border border-vxn-border bg-white p-[18px] text-left transition hover:border-vxn-teal-300 hover:shadow-md"
+          onClick={() => navigate('/trips')}
+        >
+          <span
+            className="grid h-11 w-11 place-items-center rounded-[10px] text-base font-bold text-white"
+            style={{ backgroundColor: operator.color }}
+          >
+            {operator.short}
+          </span>
+          <span className="text-[15px] font-semibold text-vxn-ink">{operator.name}</span>
+          <span className="flex items-center gap-1.5 text-[13px] text-vxn-fg-3">
+            <StarFilled className="text-vxn-saffron-600" />
+            <strong className="font-semibold text-vxn-ink">{operator.rating}</strong>
+            <span>· {operator.reviews.toLocaleString('vi-VN')} đánh giá</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  </section>
+);
 
 const NewHomePage = () => {
   const navigate = useNavigate();
-  const { setSearchCriteria } = useBookingStore();
+  const searchCardRef = useRef(null);
+  const { searchCriteria, setSearchCriteria } = useBookingStore();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
-  // City suggestions (same as TripsPage for consistency)
-  const cityOptions = [
-    'Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ',
-    'Nha Trang', 'Huế', 'Vũng Tàu', 'Đà Lạt', 'Quy Nhơn',
-    'Phan Thiết', 'Hạ Long', 'Sapa', 'Phú Quốc', 'Buôn Ma Thuột'
-  ];
+  const initialValues = useMemo(
+    () => ({
+      date: searchCriteria.date ? dayjs(searchCriteria.date) : dayjs(),
+      passengers: searchCriteria.passengers || 2,
+    }),
+    [searchCriteria]
+  );
 
-  const handleSearch = async (values) => {
+  const { featuredRoute, topRowRoutes, bottomRowRoutes } = useMemo(() => {
+    const featuredIdx = 0;
+    const topIndices = [1, 3];
+    const usedIndices = new Set([featuredIdx, ...topIndices]);
+
+    return {
+      featuredRoute: popularRoutesFallback[featuredIdx],
+      topRowRoutes: topIndices.map((i) => popularRoutesFallback[i]),
+      bottomRowRoutes: popularRoutesFallback.filter((_, i) => !usedIndices.has(i)).slice(0, 4),
+    };
+  }, []);
+
+  const buildSearchData = (values) => {
+    const passengers = Math.min(Math.max(Number(values.passengers || 1), 1), 6);
+
+    return {
+      fromCity: values.fromCity,
+      toCity: values.toCity,
+      date: values.date ? dayjs(values.date).format('YYYY-MM-DD') : null,
+      passengers,
+    };
+  };
+
+  const submitSearchData = (searchData) => {
+    if (!searchData.fromCity || !searchData.toCity) {
+      toast.error('Vui lòng nhập điểm đi và điểm đến');
+      return;
+    }
+
+    if (searchData.fromCity === searchData.toCity) {
+      toast.error('Điểm đi và điểm đến phải khác nhau');
+      return;
+    }
+
+    if (!searchData.date) {
+      toast.error('Vui lòng chọn ngày đi');
+      return;
+    }
+
+    setSearchCriteria(searchData);
+    navigate('/search-results');
+  };
+
+  const handleSearch = (values) => {
     try {
       setLoading(true);
-
-      const searchData = {
-        fromCity: values.fromCity,
-        toCity: values.toCity,
-        date: values.date ? dayjs(values.date).format('YYYY-MM-DD') : null,
-        passengers: 1,
-      };
-
-      console.log('NewHomePage - Search submitted:', { values, searchData });
-
-      if (!searchData.fromCity || !searchData.toCity) {
-        toast.error('Vui lòng nhập điểm đi và điểm đến');
-        return;
-      }
-
-      if (!searchData.date) {
-        toast.error('Vui lòng chọn ngày đi');
-        return;
-      }
-
-      console.log('NewHomePage - Setting search criteria and navigating:', searchData);
-      setSearchCriteria(searchData);
-      console.log('NewHomePage - Navigating to search-results');
-      navigate('/search-results');
+      submitSearchData(buildSearchData(values));
     } catch (error) {
-      console.error('NewHomePage - Search error:', error);
       toast.error(error.message || 'Có lỗi xảy ra khi tìm kiếm');
     } finally {
       setLoading(false);
@@ -86,364 +598,200 @@ const NewHomePage = () => {
   const handleSwapCities = () => {
     const fromCity = form.getFieldValue('fromCity');
     const toCity = form.getFieldValue('toCity');
-    form.setFieldsValue({
-      fromCity: toCity,
-      toCity: fromCity,
-    });
+    form.setFieldsValue({ fromCity: toCity, toCity: fromCity });
   };
 
-  const features = [
-    {
-      icon: <ThunderboltOutlined className="text-4xl text-blue-500" />,
-      title: 'Đặt vé nhanh chóng',
-      description: 'Chỉ vài bước đơn giản để hoàn tất đặt vé',
-    },
-    {
-      icon: <SafetyOutlined className="text-4xl text-green-500" />,
-      title: 'An toàn & tin cậy',
-      description: 'Đối tác với các nhà xe uy tín',
-    },
-    {
-      icon: <DollarOutlined className="text-4xl text-orange-500" />,
-      title: 'Giá tốt nhất',
-      description: 'So sánh giá từ nhiều nhà xe',
-    },
-    {
-      icon: <GiftOutlined className="text-4xl text-purple-500" />,
-      title: 'Ưu đãi hấp dẫn',
-      description: 'Voucher và khuyến mãi liên tục',
-    },
-  ];
+  const handleTabAction = (key) => {
+    if (key === 'lookup') {
+      navigate('/tickets/lookup');
+      return;
+    }
 
-  const loyaltyFeatures = [
-    {
-      icon: <TrophyOutlined className="text-3xl text-yellow-500" />,
-      title: 'Tích điểm Loyalty',
-      description: '1 điểm mỗi 10,000 VND chi tiêu',
-      link: '/loyalty',
-    },
-    {
-      icon: <StarOutlined className="text-3xl text-blue-500" />,
-      title: 'Đánh giá & Review',
-      description: 'Chia sẻ trải nghiệm của bạn',
-      link: '/my-reviews',
-    },
-    {
-      icon: <ExclamationCircleOutlined className="text-3xl text-orange-500" />,
-      title: 'Hỗ trợ 24/7',
-      description: 'Gửi khiếu nại mọi lúc',
-      link: '/complaints',
-    },
-  ];
+    if (key === 'operators') {
+      navigate('/trips');
+    }
+  };
+
+  const fillRoute = (route) => {
+    form.setFieldsValue({
+      fromCity: route.from,
+      toCity: route.to,
+      date: form.getFieldValue('date') || dayjs(),
+      passengers: form.getFieldValue('passengers') || 1,
+    });
+    searchCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const submitRoute = (route) => {
+    const routeValues = {
+      fromCity: route.from,
+      toCity: route.to,
+      date: form.getFieldValue('date') || dayjs(),
+      passengers: form.getFieldValue('passengers') || 1,
+    };
+
+    form.setFieldsValue(routeValues);
+    submitSearchData(buildSearchData(routeValues));
+  };
 
   return (
-    <CustomerLayout>
-      {/* Hero Section */}
-      <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-red-900 to-orange-900 text-white overflow-hidden">
-        {/* Animated Background */}
-        <div className="absolute inset-0">
-          {/* Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary-600/90 via-red-600/80 to-orange-600/90"></div>
+    <CustomerShell mainClassName="bg-white">
+      <section className="relative isolate overflow-x-clip bg-vxn-ink">
+        <div
+          className="absolute inset-0 bg-cover bg-[10%_58%] [@media(min-width:1920px)]:bg-[40%_58%]"
+          style={{ backgroundImage: `url(${heroImage})` }}
+          aria-hidden="true"
+        />
+        <div
+          className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,71,107,0)_0%,rgba(0,40,60,0)_48%,rgba(0,40,60,.56)_100%)]"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute right-[-8%] top-1/3 hidden h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(243,177,50,0.28),rgba(243,177,50,0)_70%)] lg:block"
+          aria-hidden="true"
+        />
+        <UtilityPills />
 
-          {/* Animated Geometric Shapes */}
-          <div className="absolute inset-0">
-            {/* Large floating circles */}
-            <div className="absolute top-20 left-10 w-96 h-96 bg-gradient-to-r from-red-400/20 to-orange-500/20 rounded-full blur-3xl animate-float"></div>
-            <div className="absolute bottom-20 right-10 w-80 h-80 bg-gradient-to-r from-pink-400/20 to-red-500/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-red-400/10 to-orange-400/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }}></div>
-
-            {/* Geometric patterns */}
-            <div className="absolute top-32 right-20 w-32 h-32 border border-white/10 rounded-lg rotate-45 animate-pulse"></div>
-            <div className="absolute bottom-32 left-20 w-24 h-24 border border-white/10 rounded-full animate-pulse" style={{ animationDelay: '1s' }}></div>
-            <div className="absolute top-1/3 left-1/4 w-16 h-16 bg-white/5 rounded-lg rotate-12 animate-pulse" style={{ animationDelay: '3s' }}></div>
-
-            {/* Grid pattern */}
-            <div className="absolute inset-0 opacity-5">
-              <div className="w-full h-full" style={{
-                backgroundImage: `
-                  linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
-                `,
-                backgroundSize: '50px 50px'
-              }}></div>
+        <div className="relative z-10 mx-auto w-full max-w-[1440px] px-4 pb-14 pt-20 sm:px-6 lg:h-[100svh] lg:px-14 lg:pb-6 lg:pt-[clamp(4.5rem,12vh,8.5rem)]">
+          <div className="max-w-[780px] text-white">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-vxn-teal-600/95 px-5 py-3.5 text-xs font-medium uppercase tracking-[0.08em] text-white ">
+              <TagsOutlined className="text-[13px]" />
+              Ưu đãi hè · Giảm đến 35% tuyến miền Bắc
             </div>
+            <h1 className="m-0 text-[42px] font-bold leading-[1.05] tracking-normal text-white drop-shadow-[0_4px_24px_rgba(0,40,60,.40)] sm:text-[56px]">
+              Đi Việt Nam.
+              <br />
+              <span className="text-vxn-saffron-500">Nhanh hơn, gọn hơn.</span>
+            </h1>
+            <p className="mt-3 max-w-[580px] text-base font-normal leading-7 text-white/[0.92] drop-shadow-[0_2px_12px_rgba(0,40,60,.40)] sm:text-lg">
+              5,400+ chuyến mỗi ngày · 218 nhà xe đối tác · Tích điểm sau mỗi chuyến đi
+            </p>
+          </div>
+
+          <div
+            ref={searchCardRef}
+            className="mt-8 lg:absolute lg:bottom-6 lg:left-1/2 lg:right-auto lg:mt-0 lg:w-[calc(100%-7rem)] lg:max-w-[1040px] lg:-translate-x-1/2"
+          >
+            <SearchOverlayCard
+              form={form}
+              initialValues={initialValues}
+              loading={loading}
+              onSearch={handleSearch}
+              onSwap={handleSwapCities}
+              onTabAction={handleTabAction}
+            />
           </div>
         </div>
+      </section>
 
-        <div className="relative max-w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-16 pt-6 pb-12 sm:pt-10 sm:pb-20">
-          <div className="text-center mb-12">
-            {/* Main Heading */}
-            <div className="relative">
-              <Title level={1} className="text-white text-5xl sm:text-7xl lg:text-8xl font-black mb-8 leading-tight">
-                <span className="block">Đặt vé xe khách siêu nhanh</span>
-              </Title>
+      <ContentBanners
+        position="homepage"
+        className="bg-white px-4 pt-8 lg:px-14 lg:pt-6"
+        containerClassName="mx-auto grid w-full max-w-[1440px] gap-4"
+      />
+
+      <section className="bg-white px-4 pb-12 pt-8 lg:px-14 lg:pt-6">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <span className="mb-1.5 inline-block text-[14px] font-semibold uppercase tracking-[0.12em] text-vxn-saffron-700">
+              Tuyến phổ biến
+            </span>
+            <h2 className="m-0 text-[30px] font-semibold leading-tight tracking-normal text-vxn-ink">
+              Việt Nam, mọi cung đường
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 border-0 bg-transparent text-[14px] font-medium text-vxn-teal-800"
+            onClick={() => navigate('/trips')}
+          >
+            Xem tất cả 320+ tuyến
+            <ArrowRightOutlined className="text-xs" />
+          </button>
+        </div>
+
+        <div className="grid gap-[18px] xl:grid-cols-[2fr_1fr_1fr]">
+          <RouteCardLarge route={featuredRoute} onFill={fillRoute} onSubmit={submitRoute} />
+          {topRowRoutes.map((route) => (
+            <RouteCardSmall
+              key={`${route.from}-${route.to}`}
+              route={route}
+              onSubmit={submitRoute}
+            />
+          ))}
+        </div>
+        <div className="mt-[18px] grid gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
+          {bottomRowRoutes.map((route) => (
+            <RouteCardSmall
+              key={`${route.from}-${route.to}`}
+              route={route}
+              compact
+              onSubmit={submitRoute}
+            />
+          ))}
+        </div>
+      </section>
+
+      <ValueProps />
+      <OperatorsSection navigate={navigate} />
+
+      <section className="bg-white px-4 pb-16 lg:px-14">
+        <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+          <div className="relative flex min-h-[220px] flex-col justify-between overflow-hidden rounded-2xl bg-[linear-gradient(110deg,var(--vxn-teal-800)_0%,var(--vxn-teal-700)_60%,#034e63_100%)] p-8 text-white">
+            <div className="absolute -right-10 -top-10 h-60 w-60 rounded-full bg-[radial-gradient(circle,rgba(243,177,50,.30),rgba(243,177,50,0))]" />
+            <span className="relative z-10 text-xs font-semibold uppercase tracking-[0.12em] text-vxn-saffron-500">
+              Hạng thành viên
+            </span>
+            <div className="relative z-10">
+              <h3 className="m-0 max-w-[520px] text-[28px] font-semibold leading-tight text-white">
+                Đặt 10 vé, lên Gold. Giảm 10% mọi chuyến trong năm.
+              </h3>
+              <p className="my-4 max-w-xl text-[14px] leading-6 text-white/82">
+                Tích điểm tự động sau mỗi chuyến đi. Đổi 100 điểm = 100.000đ giảm.
+              </p>
+              <button
+                type="button"
+                className="h-10 rounded-md border-0 bg-vxn-saffron-600 px-5 text-sm font-semibold text-white"
+                onClick={() => navigate('/loyalty')}
+              >
+                Tham gia VXN Plus
+              </button>
             </div>
-
-            {/* Subtitle */}
-            <div className="relative mb-8">
-              <Paragraph className="text-xl sm:text-3xl text-white/95 max-w-4xl mx-auto leading-relaxed font-light">
-                Trải nghiệm đặt vé hiện đại, nhanh chóng và an toàn với hàng nghìn chuyến xe mỗi ngày
-              </Paragraph>
-            </div>
-
-            {/* Feature Badges */}
-            <div className="flex flex-wrap justify-center gap-4 mt-8">
-              {[
-                { icon: <ThunderboltOutlined />, text: 'Đặt vé 30 giây' },
-                { icon: <SafetyOutlined />, text: 'Thanh toán an toàn' },
-                { icon: <FileTextOutlined />, text: 'Vé điện tử QR' },
-                { icon: <GiftOutlined />, text: 'Ưu đãi hấp dẫn' }
-              ].map((badge, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-3 px-6 py-3 bg-white/20 backdrop-blur-sm rounded-2xl border border-white/30 shadow-lg"
-                >
-                  <span className="text-white text-xl">{badge.icon}</span>
-                  <span className="text-sm font-semibold tracking-wide text-white">{badge.text}</span>
-                </div>
-              ))}
-            </div>
-
           </div>
 
-          {/* Enhanced Search Form */}
-          <div className="max-w-7xl mx-auto animate-fade-in-up" style={{ animationDelay: '1.5s' }}>
-            <Card className="relative backdrop-blur-xl bg-white/95 shadow-2xl border-0 rounded-3xl overflow-hidden group hover:shadow-3xl transition-all duration-500">
-              {/* Card Header with Gradient */}
-
-
-              <div className="p-6 lg:p-8">
-                <div className="text-center mb-6">
-                  <Title level={2} className="text-neutral-800 mb-2 font-bold">
-                    Tìm chuyến xe hoàn hảo
-                  </Title>
-                </div>
-
-                <Form
-                  form={form}
-                  layout="vertical"
-                  onFinish={handleSearch}
-                  initialValues={{
-                    date: dayjs(),
-                  }}
-                  className="relative"
-                >
-                  {/* Form Background Decoration */}
-                  <div className="absolute -top-4 -left-4 w-20 h-20 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full opacity-50 blur-xl"></div>
-                  <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full opacity-50 blur-xl"></div>
-
-                  <div className="relative">
-                    <Row gutter={[12, 12]} align="bottom">
-                      <Col xs={24} lg={11}>
-                        <Form.Item
-                          label={
-                            <span className="font-semibold text-neutral-700 mb-1">
-                              Điểm đi
-                            </span>
-                          }
-                          name="fromCity"
-                          rules={[{ required: true, message: 'Vui lòng nhập điểm đi!' }]}
-                        >
-                          <AutoComplete
-                            size="large"
-                            placeholder="Chọn hoặc nhập thành phố đi (VD: Hà Nội)"
-                            options={cityOptions.map(city => ({ value: city }))}
-                            filterOption={(inputValue, option) =>
-                              option.value.toLowerCase().includes(inputValue.toLowerCase())
-                            }
-                            className="h-14 rounded-lg border-2 border-neutral-200 hover:border-red-400 focus:border-red-500 transition-all duration-300"
-                          />
-                        </Form.Item>
-                      </Col>
-
-                      <Col xs={24} lg={2} className="flex justify-center">
-                        <Form.Item label={<span className="opacity-0">Swap</span>} className="w-min">
-                          <Button
-                            type="text"
-                            icon={<SwapOutlined className="text-lg" />}
-                            onClick={handleSwapCities}
-                            size="large"
-                            className="h-14 w-full rounded-lg bg-white hover:bg-red-50 text-red-600 border-2 border-red-200 hover:border-red-400 transition-all duration-300 shadow-sm"
-                          />
-                        </Form.Item>
-                      </Col>
-
-                      <Col xs={24} lg={11}>
-                        <Form.Item
-                          label={
-                            <span className="font-semibold text-neutral-700">
-                              Điểm đến
-                            </span>
-                          }
-                          name="toCity"
-                          rules={[{ required: true, message: 'Vui lòng nhập điểm đến!' }]}
-                        >
-                          <AutoComplete
-                            size="large"
-                            placeholder="Chọn hoặc nhập thành phố đến (VD: TP. HCM)"
-                            options={cityOptions.map(city => ({ value: city }))}
-                            filterOption={(inputValue, option) =>
-                              option.value.toLowerCase().includes(inputValue.toLowerCase())
-                            }
-                            className="h-14 rounded-lg border-2 border-neutral-200 hover:border-red-400 focus:border-red-500 transition-all duration-300"
-                          />
-                        </Form.Item>
-                      </Col>
-
-                      <Col xs={24} lg={12}>
-                        <Form.Item
-                          label={
-                            <span className="font-semibold text-neutral-700">
-                              Ngày khởi hành
-                            </span>
-                          }
-                          name="date"
-                          rules={[{ required: true, message: 'Vui lòng chọn ngày!' }]}
-                        >
-                          <DatePicker
-                            size="large"
-                            placeholder="Chọn ngày khởi hành"
-                            format="DD/MM/YYYY"
-                            disabledDate={(current) =>
-                              current && current < dayjs().startOf('day')
-                            }
-                            className="w-full h-14 rounded-lg border-2 border-neutral-200 hover:border-red-400 focus:border-red-500 transition-all duration-300"
-                            suffixIcon={<CalendarOutlined className="text-red-500" />}
-                          />
-                        </Form.Item>
-                      </Col>
-
-                      <Col xs={24} lg={12}>
-                        <Form.Item label={<span className="opacity-0">Search</span>}>
-                          <Button
-                            type="primary"
-                            size="large"
-                            block
-                            htmlType="submit"
-                            loading={loading}
-                            icon={<SearchOutlined className="text-lg" />}
-                            className="h-14 rounded-lg bg-red-600 hover:bg-red-700 border-0 font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300"
-                          >
-                            Tìm chuyến xe ngay
-                          </Button>
-                        </Form.Item>
-                      </Col>
-                    </Row>
-                  </div>
-                </Form>
-
-                {/* Popular searches */}
-                <div className="pt-4 border-t border-neutral-200">
-                  <div className="text-center">
-                    <Text className="text-sm text-neutral-500 mb-3 block">
-                      Tìm kiếm phổ biến:
-                    </Text>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto">
-                      {[
-                        'Hà Nội - TP.HCM',
-                        'Hà Nội - Đà Nẵng',
-                        'TP.HCM - Đà Lạt',
-                        'Hà Nội - Hải Phòng'
-                      ].map((route, index) => (
-                        <Button
-                          key={index}
-                          type="text"
-                          className="h-10 px-4 rounded-lg bg-neutral-50 hover:bg-red-50 text-neutral-600 hover:text-red-600 border border-neutral-200 hover:border-red-300 text-sm transition-all duration-200"
-                          onClick={() => {
-                            const [from, to] = route.split(' - ');
-                            form.setFieldsValue({ fromCity: from, toCity: to });
-                          }}
-                        >
-                          {route}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
+          <div className="rounded-2xl border border-vxn-border bg-white p-6">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-[17px] font-semibold text-vxn-ink">Cẩm nang xe khách</span>
+              <button
+                type="button"
+                className="border-0 bg-transparent text-[14px] font-medium text-vxn-teal-800"
+                onClick={() => navigate('/news')}
+              >
+                Tin tức →
+              </button>
+            </div>
+            {homeGuidePosts.map(({ title, category, image }) => (
+              <button
+                key={title}
+                type="button"
+                className="flex w-full gap-3 border-0 bg-transparent py-2 text-left"
+                onClick={() => navigate('/news')}
+              >
+                <span className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[#FDE7C2]">
+                  <img src={image} alt={title} className="h-full w-full object-cover" />
+                </span>
+                <span>
+                  <span className="block text-[15px] font-medium leading-snug text-vxn-ink">
+                    {title}
+                  </span>
+                  <span className="mt-1 block text-[13px] text-vxn-fg-5">{category}</span>
+                </span>
+              </button>
+            ))}
           </div>
         </div>
-      </div>
-
-      {/* Simplified Features Section */}
-      <div className="bg-white py-16">
-        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-16">
-
-          <div className="text-center mb-12">
-            <Title level={2} className="text-neutral-800 mb-4">
-              Tại sao chọn Vé xe nhanh?
-            </Title>
-            <Text className="text-lg text-neutral-600 mb-8">
-              Nền tảng đặt vé xe khách hàng đầu với 150+ nhà xe uy tín, 500+ tuyến đường và 98% đánh giá tích cực
-            </Text>
-          </div>
-
-          <Row gutter={[24, 24]} justify="center">
-            <Col xs={24} sm={12} lg={6}>
-              <div className="text-center p-6 bg-neutral-50 rounded-xl hover:bg-red-50 transition-all duration-300">
-                <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-xl flex items-center justify-center">
-                  <ThunderboltOutlined className="text-2xl text-red-600" />
-                </div>
-                <Title level={4} className="text-neutral-800 mb-2">
-                  Đặt vé nhanh chóng
-                </Title>
-                <Text className="text-neutral-600 text-sm">
-                  Chỉ 30 giây để hoàn tất đặt vé
-                </Text>
-              </div>
-            </Col>
-
-            <Col xs={24} sm={12} lg={6}>
-              <div className="text-center p-6 bg-neutral-50 rounded-xl hover:bg-red-50 transition-all duration-300">
-                <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-xl flex items-center justify-center">
-                  <SafetyOutlined className="text-2xl text-red-600" />
-                </div>
-                <Title level={4} className="text-neutral-800 mb-2">
-                  An toàn & tin cậy
-                </Title>
-                <Text className="text-neutral-600 text-sm">
-                  Thanh toán bảo mật 100%
-                </Text>
-              </div>
-            </Col>
-
-            <Col xs={24} sm={12} lg={6}>
-              <div className="text-center p-6 bg-neutral-50 rounded-xl hover:bg-red-50 transition-all duration-300">
-                <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-xl flex items-center justify-center">
-                  <DollarOutlined className="text-2xl text-red-600" />
-                </div>
-                <Title level={4} className="text-neutral-800 mb-2">
-                  Giá tốt nhất
-                </Title>
-                <Text className="text-neutral-600 text-sm">
-                  So sánh giá từ nhiều nhà xe
-                </Text>
-              </div>
-            </Col>
-
-            <Col xs={24} sm={12} lg={6}>
-              <div className="text-center p-6 bg-neutral-50 rounded-xl hover:bg-red-50 transition-all duration-300">
-                <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-xl flex items-center justify-center">
-                  <GiftOutlined className="text-2xl text-red-600" />
-                </div>
-                <Title level={4} className="text-neutral-800 mb-2">
-                  Ưu đãi hấp dẫn
-                </Title>
-                <Text className="text-neutral-600 text-sm">
-                  Voucher và khuyến mãi liên tục
-                </Text>
-              </div>
-            </Col>
-          </Row>
-
-        </div>
-      </div>
-
-
-      {/* Popular Routes */}
-      <PopularRoutes />
-    </CustomerLayout>
+      </section>
+    </CustomerShell>
   );
 };
 

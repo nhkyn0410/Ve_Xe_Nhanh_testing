@@ -333,7 +333,7 @@ PaymentSchema.statics.generatePaymentCode = async function () {
 PaymentSchema.statics.findByBooking = function (bookingId) {
   return this.find({ bookingId })
     .populate('customerId', 'fullName email phone')
-    .populate('operatorId', 'companyName email phone')
+    .populate('operatorId', 'operatorName companyName email phone')
     .sort({ createdAt: -1 });
 };
 
@@ -360,7 +360,7 @@ PaymentSchema.statics.findByCustomer = function (customerId, filters = {}) {
 
   return this.find(query)
     .populate('bookingId')
-    .populate('operatorId', 'companyName')
+    .populate('operatorId', 'operatorName companyName')
     .sort({ createdAt: -1 });
 };
 
@@ -386,7 +386,14 @@ PaymentSchema.statics.findByOperator = function (operatorId, filters = {}) {
   }
 
   return this.find(query)
-    .populate('bookingId')
+    .populate({
+      path: 'bookingId',
+      populate: {
+        path: 'tripId',
+        select: 'departureTime arrivalTime routeId',
+        populate: { path: 'routeId', select: 'routeName routeCode origin destination' },
+      },
+    })
     .populate('customerId', 'fullName email phone')
     .sort({ createdAt: -1 });
 };

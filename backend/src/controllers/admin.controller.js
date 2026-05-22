@@ -1,6 +1,7 @@
 const OperatorService = require('../services/operator.service');
 const AuthService = require('../services/auth.service');
 const User = require('../models/User');
+const BusOperator = require('../models/BusOperator');
 const Booking = require('../models/Booking');
 const logger = require('../utils/logger');
 
@@ -355,6 +356,79 @@ exports.resumeOperator = async (req, res, next) => {
 };
 
 /**
+ * @route   GET /api/v1/admin/operators/statistics
+ * @desc    Lấy thống kê tổng quan nhà xe (toàn hệ thống)
+ * @access  Private (Admin)
+ */
+exports.getOperatorStatistics = async (req, res) => {
+  try {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const [
+      total,
+      active,
+      pending,
+      rejected,
+      suspended,
+      inactive,
+      newThisMonth,
+      aggregates,
+    ] = await Promise.all([
+      BusOperator.countDocuments(),
+      BusOperator.countDocuments({ verificationStatus: 'approved', isSuspended: false }),
+      BusOperator.countDocuments({ verificationStatus: 'pending' }),
+      BusOperator.countDocuments({ verificationStatus: 'rejected' }),
+      BusOperator.countDocuments({ isSuspended: true }),
+      BusOperator.countDocuments({ isActive: false }),
+      BusOperator.countDocuments({ createdAt: { $gte: startOfMonth } }),
+      BusOperator.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: '$totalRevenue' },
+            totalTrips: { $sum: '$totalTrips' },
+            totalReviews: { $sum: '$totalReviews' },
+            avgRating: {
+              $avg: {
+                $cond: [{ $gt: ['$averageRating', 0] }, '$averageRating', null],
+              },
+            },
+          },
+        },
+      ]),
+    ]);
+
+    const agg = aggregates[0] || {};
+
+    res.json({
+      success: true,
+      data: {
+        total,
+        active,
+        pending,
+        rejected,
+        suspended,
+        inactive,
+        newThisMonth,
+        totalRevenue: agg.totalRevenue || 0,
+        totalTrips: agg.totalTrips || 0,
+        totalReviews: agg.totalReviews || 0,
+        avgRating: agg.avgRating ? Number(agg.avgRating.toFixed(2)) : 0,
+      },
+    });
+  } catch (error) {
+    logger.error('Lỗi lấy thống kê nhà xe:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Không thể tải thống kê nhà xe',
+      error: error.message,
+    });
+  }
+};
+
+/**
  * ========================
  * USER MANAGEMENT (UC-22)
  * ========================
@@ -411,6 +485,7 @@ exports.getUsers = async (req, res) => {
       role,
       isBlocked,
       isActive,
+      loyaltyTier,
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc',
@@ -422,6 +497,11 @@ exports.getUsers = async (req, res) => {
     // Filter by role
     if (role) {
       query.role = role;
+    }
+
+    // Filter by loyalty tier (customer membership)
+    if (loyaltyTier) {
+      query.loyaltyTier = loyaltyTier;
     }
 
     // Filter by blocked status
@@ -936,11 +1016,19 @@ exports.getSystemOverview = async (req, res) => {
     const start = startDate ? new Date(startDate) : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     // User Statistics
+    // Tổng người dùng = mọi role (gồm cả admin trong cùng collection User).
     const totalUsers = await User.countDocuments();
+    // Các KPI "Khách hàng" chỉ tính role 'customer' — admin nằm chung
+    // collection User nên không được lẫn vào số khách hàng.
     const newUsers = await User.countDocuments({
+      role: 'customer',
       createdAt: { $gte: start, $lte: end },
     });
-    const activeUsers = await User.countDocuments({ isActive: true, isBlocked: false });
+    const activeUsers = await User.countDocuments({
+      role: 'customer',
+      isActive: true,
+      isBlocked: false,
+    });
 
     // Operator Statistics
     const totalOperators = await BusOperator.countDocuments();
@@ -1152,6 +1240,7 @@ exports.getSystemOverview = async (req, res) => {
     });
 
     const previousUsers = await User.countDocuments({
+      role: 'customer',
       createdAt: { $gte: previousStart, $lt: previousEnd },
     });
 

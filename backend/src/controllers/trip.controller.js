@@ -17,6 +17,7 @@ exports.create = async (req, res) => {
     const tripData = req.body;
 
     // Validate required fields
+    // Lưu ý: 'basePrice' không còn bắt buộc — được gán tự động theo giá vé của tuyến
     const requiredFields = [
       'routeId',
       'busId',
@@ -24,7 +25,6 @@ exports.create = async (req, res) => {
       'tripManagerId',
       'departureTime',
       'arrivalTime',
-      'basePrice',
     ];
 
     const missingFields = requiredFields.filter((field) => !tripData[field]);

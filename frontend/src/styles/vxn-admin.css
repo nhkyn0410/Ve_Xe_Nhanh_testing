@@ -1,0 +1,99 @@
+/* ───────────────────────────────────────────────────────────────
+   Vé Xe Nhanh — System Admin portal design tokens (scoped)
+   Ported from the "Trang admin hệ thống" design package
+   (colors_and_type.css). Scoped under .vxn-admin so the design
+   tokens do not leak into the customer / operator surfaces.
+   ─────────────────────────────────────────────────────────────── */
+
+.vxn-admin {
+  /* ── Brand core ─────────────────────────────────────────── */
+  --vxn-teal-900: #00476b;
+  --vxn-teal-800: #005DAA;
+  --vxn-teal-700: #006481;   /* PRIMARY — logo, sidebar active */
+  --vxn-teal-600: #226A92;
+  --vxn-teal-500: #2B7EAD;   /* CTA */
+
+  --vxn-saffron-700: #D18A1E;
+  --vxn-saffron-600: #E89B26; /* "HỆ THỐNG" badge, SUPER ADMIN */
+  --vxn-saffron-500: #F3B132;
+
+  /* ── Neutrals ───────────────────────────────────────────── */
+  --vxn-ink:        #181C22;
+  --vxn-fg-1:       #2D3138;
+  --vxn-fg-2:       #404753;
+  --vxn-fg-3:       #475569;
+  --vxn-fg-4:       #5E6165;
+  --vxn-fg-5:       #64748B;
+  --vxn-fg-6:       #74777B;
+  --vxn-fg-disabled:#AEAFB3;
+
+  --vxn-bg:         #FFFFFF;
+  --vxn-bg-soft:    #F9F9FF;
+  --vxn-bg-mist:    #F1F3FD;
+  --vxn-bg-cloud:   #EBEEF7;
+  --vxn-bg-stone:   #E4E5E7;
+  --vxn-bg-fog:     #E5E8F1;
+
+  --vxn-border:        #DFE2EC;
+  --vxn-border-strong: #CBD5E1;
+  --vxn-border-muted:  #C0C7D6;
+
+  /* ── Semantic ───────────────────────────────────────────── */
+  --vxn-success-bg: #DBEAFE;
+  --vxn-success-fg: #1D4ED8;
+  --vxn-success-leaf: #00613D;
+  --vxn-warning-bg: #FEF3C7;
+  --vxn-warning-fg: #B45309;
+  --vxn-danger-bg:  #FEE2E2;
+  --vxn-danger-fg:  #EF4444;
+  --vxn-info-bg:    #D4E3FF;
+
+  /* ── Type ───────────────────────────────────────────────── */
+  --font-display: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+  --font-ui:      'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+  --font-mono:    ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* ── Layout ─────────────────────────────────────────────── */
+  --sidebar-w: 240px;
+  --topbar-h:  73px;
+
+  background: var(--vxn-bg-soft);
+  color: var(--vxn-fg-1);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+}
+
+.vxn-admin *,
+.vxn-admin *::before,
+.vxn-admin *::after { box-sizing: border-box; }
+
+.vxn-admin ::-webkit-scrollbar { height: 10px; width: 10px; }
+.vxn-admin ::-webkit-scrollbar-thumb {
+  background: #CBD5E1; border-radius: 999px;
+  border: 2px solid var(--vxn-bg-soft);
+}
+.vxn-admin ::-webkit-scrollbar-track { background: transparent; }
+
+/* Reset the Tailwind-free anchor styling the design assumes */
+.vxn-admin a { text-decoration: none; }
+.vxn-admin table { border-collapse: collapse; }
+
+@keyframes vxnShimmer {
+  0%   { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+/* Responsive grids used across admin views (admin design HTML) */
+.vxn-admin .admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.vxn-admin .admin-grid-2 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 1100px) {
+  .vxn-admin .admin-grid-2 { grid-template-columns: 1fr; }
+}

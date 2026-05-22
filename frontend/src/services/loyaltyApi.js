@@ -26,7 +26,14 @@ export const getLoyaltyOverview = async () => {
  * @returns {Promise<Object>} Loyalty history data
  */
 export const getLoyaltyHistory = async (params = {}) => {
-  const queryString = new URLSearchParams(params).toString();
+  // Strip undefined/null/empty values so they aren't serialized as the
+  // literal string "undefined" (which would break server-side filtering).
+  const clean = Object.fromEntries(
+    Object.entries(params).filter(
+      ([, value]) => value !== undefined && value !== null && value !== ''
+    )
+  );
+  const queryString = new URLSearchParams(clean).toString();
   return api.get(`/users/loyalty/history${queryString ? `?${queryString}` : ''}`);
 };
 

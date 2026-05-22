@@ -254,7 +254,7 @@ BusSchema.statics.findByType = function (busType, activeOnly = false) {
   if (activeOnly) {
     query.status = 'active';
   }
-  return this.find(query).populate('operatorId', 'companyName averageRating');
+  return this.find(query).populate('operatorId', 'operatorName companyName averageRating');
 };
 
 const Bus = mongoose.model('Bus', BusSchema);

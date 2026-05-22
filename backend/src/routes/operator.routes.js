@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const operatorController = require('../controllers/operator.controller');
 const routeController = require('../controllers/route.controller');
+const stopPointController = require('../controllers/stopPoint.controller');
 const busController = require('../controllers/bus.controller');
 const employeeController = require('../controllers/employee.controller');
 const tripController = require('../controllers/trip.controller');
@@ -26,6 +27,9 @@ router.get('/', operatorController.getAll);
 router.get('/me/profile', authenticate, authorize('operator'), operatorController.getMe);
 router.put('/me/profile', authenticate, authorize('operator'), operatorController.updateMe);
 
+// Public operator profile
+router.get('/:id/profile', operatorController.getPublicProfile);
+
 // Dashboard statistics (Operator only)
 router.get('/dashboard/stats', authenticate, authorize('operator'), operatorController.getDashboardStats);
 
@@ -36,6 +40,13 @@ router.get('/routes/:id', authenticate, authorize('operator'), routeController.g
 router.put('/routes/:id', authenticate, authorize('operator'), routeController.update);
 router.delete('/routes/:id', authenticate, authorize('operator'), routeController.delete);
 router.put('/routes/:id/toggle-active', authenticate, authorize('operator'), routeController.toggleActive);
+
+// Stop point catalog management (Operator only)
+router.get('/stops', authenticate, authorize('operator'), stopPointController.getMyStops);
+router.post('/stops', authenticate, authorize('operator'), stopPointController.create);
+router.get('/stops/:id', authenticate, authorize('operator'), stopPointController.getById);
+router.put('/stops/:id', authenticate, authorize('operator'), stopPointController.update);
+router.delete('/stops/:id', authenticate, authorize('operator'), stopPointController.delete);
 
 // Pickup/Dropoff points management
 router.post('/routes/:id/pickup-points', authenticate, authorize('operator'), routeController.addPickupPoint);

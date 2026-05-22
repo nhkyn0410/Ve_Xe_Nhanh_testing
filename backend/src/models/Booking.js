@@ -358,7 +358,7 @@ BookingSchema.statics.findByCustomer = function (customerId, filters = {}) {
 
   return this.find(query)
     .populate('tripId')
-    .populate('operatorId', 'companyName phone email')
+    .populate('operatorId', 'operatorName companyName phone email')
     .sort({ createdAt: -1 });
 };
 

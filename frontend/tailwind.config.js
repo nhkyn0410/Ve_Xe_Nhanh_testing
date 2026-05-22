@@ -12,6 +12,19 @@ export default {
         primary: designSystem.colors.primary,
         secondary: designSystem.colors.secondary,
         accent: designSystem.colors.accent,
+        'vxn-teal': designSystem.colors.teal,
+        'vxn-saffron': designSystem.colors.saffron,
+        'vxn-bg': designSystem.colors.background,
+        'vxn-border': designSystem.colors.border,
+        'vxn-ink': '#181C22',
+        'vxn-fg': {
+          1: '#2D3138',
+          2: '#404753',
+          3: '#475569',
+          4: '#5E6165',
+          5: '#64748B',
+          disabled: '#AEAFB3',
+        },
         success: designSystem.colors.success,
         warning: designSystem.colors.warning,
         error: designSystem.colors.error,
@@ -40,6 +53,7 @@ export default {
         'gradient-rainbow': designSystem.gradients.rainbow,
         'gradient-red-blue': designSystem.gradients.redBlue,
         'gradient-red-purple': designSystem.gradients.redPurple,
+        'gradient-vxn-hero': designSystem.gradients.hero,
       },
       keyframes: {
         fadeIn: {
@@ -75,6 +89,12 @@ export default {
         },
         '.text-gradient-rainbow': {
           'background': designSystem.gradients.rainbow,
+          '-webkit-background-clip': 'text',
+          'background-clip': 'text',
+          '-webkit-text-fill-color': 'transparent',
+        },
+        '.text-gradient-vxn': {
+          'background': designSystem.gradients.redPurple,
           '-webkit-background-clip': 'text',
           'background-clip': 'text',
           '-webkit-text-fill-color': 'transparent',

@@ -66,7 +66,7 @@ const complaintSchema = new mongoose.Schema(
     },
     operatorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Operator',
+      ref: 'BusOperator',
     },
     tripId: {
       type: mongoose.Schema.Types.ObjectId,

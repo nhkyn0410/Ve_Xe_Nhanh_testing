@@ -45,6 +45,10 @@ const LocationSchema = new mongoose.Schema(
 // Sub-schema for pickup/dropoff points
 const PointSchema = new mongoose.Schema(
   {
+    stopId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'StopPoint',
+    },
     name: {
       type: String,
       required: [true, 'Tên điểm là bắt buộc'],
@@ -73,6 +77,10 @@ const PointSchema = new mongoose.Schema(
 // Sub-schema for stops/waypoints along the route
 const StopSchema = new mongoose.Schema(
   {
+    stopId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'StopPoint',
+    },
     name: {
       type: String,
       required: [true, 'Tên điểm dừng là bắt buộc'],
@@ -200,6 +208,16 @@ const RouteSchema = new mongoose.Schema(
       max: [2880, 'Thời gian không thể quá 48 giờ (2880 phút)'],
     },
 
+    // Giá vé mặc định của tuyến — được áp dụng tự động khi tạo chuyến.
+    // Không đặt `required` ở schema để tránh phá vỡ việc lưu các tuyến cũ
+    // chưa có giá; ràng buộc "phải > 0" được áp dụng khi tạo tuyến mới
+    // (route.service) và khi tạo chuyến (trip.service).
+    basePrice: {
+      type: Number,
+      default: 0,
+      min: [0, 'Giá vé không thể âm'],
+    },
+
     // Status
     isActive: {
       type: Boolean,
@@ -303,7 +321,7 @@ RouteSchema.statics.searchByCities = function (originCity, destinationCity) {
     query['destination.city'] = new RegExp(destinationCity, 'i');
   }
 
-  return this.find(query).populate('operatorId', 'companyName averageRating');
+  return this.find(query).populate('operatorId', 'operatorName companyName averageRating');
 };
 
 // Pre-save middleware to auto-generate route name if not provided

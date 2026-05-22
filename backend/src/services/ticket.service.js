@@ -1,6 +1,7 @@
 const moment = require('moment-timezone');
 const Ticket = require('../models/Ticket');
 const Booking = require('../models/Booking');
+const Payment = require('../models/Payment');
 const Trip = require('../models/Trip');
 const QRService = require('./qr.service');
 const { sendEmail, emailTemplates } = require('../config/email');
@@ -9,6 +10,35 @@ const CancellationService = require('./cancellation.service');
 const { getRedisClient } = require('../config/redis');
 
 const logger = require('../utils/logger');
+
+const normalizeLookupPhone = (phone = '') => {
+  const normalized = String(phone).replace(/[\s().-]/g, '');
+  if (/^84\d{9}$/.test(normalized)) return `0${normalized.slice(2)}`;
+  if (normalized.startsWith('+84')) return `0${normalized.slice(3)}`;
+  return normalized;
+};
+
+const getPhoneLookupValues = (phone) => {
+  if (!phone) return [];
+
+  const localPhone = normalizeLookupPhone(phone);
+  const internationalPhone = localPhone.startsWith('0') ? `+84${localPhone.slice(1)}` : phone;
+
+  return Array.from(new Set([phone, localPhone, internationalPhone].filter(Boolean)));
+};
+
+const maskLookupContact = (value, method) => {
+  const text = String(value || '');
+  if (method === 'email') {
+    const [local, domain] = text.split('@');
+    if (!local || !domain) return '***';
+    return `${local.slice(0, 2)}***@${domain}`;
+  }
+
+  const digits = text.replace(/\D/g, '');
+  if (digits.length <= 4) return '***';
+  return `${digits[0]}***${digits.slice(-3)}`;
+};
 
 // Lazy-load BookingService to avoid circular dependency
 let BookingService = null;
@@ -189,24 +219,45 @@ class TicketService {
         sms: { sent: false },
       };
 
-      // Check if demo mode
-      const isDemoMode = process.env.DEMO_MODE === 'true';
+      const hasEmailTransportConfig = Boolean(
+        process.env.SENDGRID_API_KEY ||
+        process.env.EMAIL_USER ||
+        process.env.EMAIL_PASSWORD ||
+        process.env.SMTP_USER ||
+        process.env.SMTP_PASSWORD ||
+        process.env.SMTP_PASS
+      );
 
-      if (isDemoMode) {
-        logger.info('📝 Demo chế độ: Simultạitrtrêngg email and SMS thông báo');
-        results.email.sent = true;
-        results.email.demo = true;
-        results.sms.sent = true;
-        results.sms.demo = true;
+      // In demo mode, only simulate email when no real email transport is configured.
+      // This lets paid bookings/resend use Gmail/SMTP without requiring EMAIL_ENABLED=true.
+      const shouldSimulateEmail =
+        process.env.DEMO_MODE === 'true' &&
+        process.env.EMAIL_ENABLED !== 'true' &&
+        !hasEmailTransportConfig;
+      const shouldSimulateSMS = process.env.DEMO_MODE === 'true' && process.env.SMS_ENABLED !== 'true';
 
-        ticket.markEmailSent();
-        ticket.markSmsSent();
+      if (shouldSimulateEmail || shouldSimulateSMS) {
+        logger.info('Demo mode: mô phỏng các kênh thông báo chưa bật');
+
+        if (shouldSimulateEmail && contactEmail && !ticket.emailSent) {
+          results.email.sent = true;
+          results.email.demo = true;
+          ticket.markEmailSent();
+          logger.success(`[DEMO] Email would be đã gửi đến: ${contactEmail}`);
+        }
+
+        if (shouldSimulateSMS && contactPhone && !ticket.smsSent) {
+          results.sms.sent = true;
+          results.sms.demo = true;
+          ticket.markSmsSent();
+          logger.success(`[DEMO] SMS would be đã gửi đến: ${contactPhone}`);
+        }
+
         await ticket.save();
 
-          logger.success(`[DEMO] Email would be đã gửi đến: ${contactEmail}`);
-          logger.success(`[DEMO] SMS would be đã gửi đến: ${contactPhone}`);
-
-        return results;
+        if (shouldSimulateEmail && shouldSimulateSMS) {
+          return results;
+        }
       }
 
       // Prepare ticket data for email
@@ -225,7 +276,7 @@ class TicketService {
         totalPrice: `${ticket.totalPrice.toLocaleString('vi-VN')} VNĐ`,
         qrCodeImage: ticket.qrCode, // Base64 data URL
         ticketUrl: `${process.env.FRONTEND_URL}/tickets/${ticket.ticketCode}`,
-        operatorName: ticket.operatorId.companyName,
+        operatorName: ticket.operatorId.operatorName || ticket.operatorId.companyName,
         operatorPhone: ticket.operatorId.phone,
         operatorEmail: ticket.operatorId.email,
       };
@@ -235,20 +286,34 @@ class TicketService {
         try {
           const emailTemplate = emailTemplates.ticketConfirmation(ticketData);
 
-          await sendEmail({
+          const emailInfo = await sendEmail({
             to: contactEmail,
             subject: emailTemplate.subject,
             html: emailTemplate.html,
             qrCodeDataUrl: ticket.qrCode, // Pass QR as data URL for CID conversion
           });
 
-          ticket.markEmailSent();
-          results.email.sent = true;
-          logger.success(`Vé email đã gửi đến: ${contactEmail}`);
+          if (emailInfo?.skipped) {
+            results.email.skipped = true;
+            results.email.reason = 'Email disabled';
+            logger.info(`Email vé bị tắt, chưa đánh dấu đã gửi: ${contactEmail}`);
+          } else {
+            ticket.markEmailSent();
+            results.email.sent = true;
+            logger.success(`Vé email đã gửi đến: ${contactEmail}`);
+          }
         } catch (error) {
           logger.error(`Email gửi thất bại: ${error.message}`);
           results.email.error = error.message;
         }
+      } else if (!contactEmail) {
+        results.email.skipped = true;
+        results.email.reason = 'No contact email';
+        logger.warn(`Không gửi email vé vì booking thiếu email liên hệ: ${booking.bookingCode}`);
+      } else if (ticket.emailSent) {
+        results.email.skipped = true;
+        results.email.reason = 'Ticket email already marked sent';
+        logger.info(`Bỏ qua email vé vì đã đánh dấu gửi trước đó: ${ticket.ticketCode}`);
       }
 
       // Send SMS
@@ -301,7 +366,7 @@ class TicketService {
   static async getTicketById(ticketId, customerId = null) {
     const ticket = await Ticket.findById(ticketId)
       .populate('tripId')
-      .populate('operatorId', 'companyName phone email logo')
+      .populate('operatorId', 'operatorName companyName phone email logo')
       .populate('bookingId');
 
     if (!ticket) {
@@ -324,7 +389,7 @@ class TicketService {
   static async getTicketByBooking(bookingId) {
     const ticket = await Ticket.findOne({ bookingId })
       .populate('tripId')
-      .populate('operatorId', 'companyName phone email logo')
+      .populate('operatorId', 'operatorName companyName phone email logo')
       .populate('bookingId');
 
     if (!ticket) {
@@ -347,11 +412,15 @@ class TicketService {
       throw new Error('Phải cung cấp số điện thoại hoặc email');
     }
 
+    const phoneValues = getPhoneLookupValues(phone);
+
     // Find bookings by phone or email
     const bookings = await Booking.find({
       $or: [
-        phone ? { 'contactInfo.phone': phone } : null,
-        phone ? { 'guestInfo.phone': phone } : null,
+        ...phoneValues.flatMap((value) => [
+          { 'contactInfo.phone': value },
+          { 'guestInfo.phone': value },
+        ]),
         email ? { 'contactInfo.email': email } : null,
         email ? { 'guestInfo.email': email } : null,
       ].filter(Boolean),
@@ -363,7 +432,7 @@ class TicketService {
 
     // Determine contact method and value
     const contactMethod = phone ? 'phone' : 'email';
-    const contactValue = phone || email;
+    const contactValue = phone ? normalizeLookupPhone(phone) : email;
 
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -373,14 +442,16 @@ class TicketService {
     const redis = getRedisClient();
     await redis.setEx(otpKey, 300, otp); // 5 minutes
 
-    logger.info(`🔐 OTP tra cứu vé cho ${contactMethod} ${contactValue}: ${otp} (Demo: use 123456)`);
+    logger.info(
+      `OTP tra cứu vé cho ${contactMethod} ${maskLookupContact(contactValue, contactMethod)} (Demo: use 123456)`
+    );
 
     const sentMethods = [];
 
     // Send OTP via SMS if phone provided
     if (contactMethod === 'phone') {
       try {
-        await SMSService.sendOTP(phone, otp);
+        await SMSService.sendOTP(normalizeLookupPhone(phone), otp);
         sentMethods.push('SMS');
       } catch (error) {
         logger.error(`Không thể gửi OTP SMS: ${error.message}`);
@@ -440,8 +511,8 @@ class TicketService {
       throw new Error('Phải cung cấp số điện thoại hoặc email');
     }
 
-    // Get OTP key - use whatever was provided (phone or email)
-    const contactValue = phone || email;
+    // Get OTP key - use normalized phone or email
+    const contactValue = phone ? normalizeLookupPhone(phone) : email;
     const otpKey = `ticket_lookup_otp:${contactValue}`;
 
     // Demo mode: Accept 123456 as valid OTP
@@ -464,11 +535,15 @@ class TicketService {
       logger.warn('Demo OTP (123456) accepted cho kiểm tra');
     }
 
+    const phoneValues = getPhoneLookupValues(phone);
+
     // Find all bookings by phone or email
     const bookings = await Booking.find({
       $or: [
-        phone ? { 'contactInfo.phone': phone } : null,
-        phone ? { 'guestInfo.phone': phone } : null,
+        ...phoneValues.flatMap((value) => [
+          { 'contactInfo.phone': value },
+          { 'guestInfo.phone': value },
+        ]),
         email ? { 'contactInfo.email': email } : null,
         email ? { 'guestInfo.email': email } : null,
       ].filter(Boolean),
@@ -613,7 +688,7 @@ class TicketService {
     logger.debug(`Ftrtrêngal truy vấn: ${JSON.stringify(query, null, 2)}`);
     const tickets = await Ticket.find(query)
       .populate('tripId')
-      .populate('operatorId', 'companyName phone email logo')
+      .populate('operatorId', 'operatorName companyName phone email logo')
       .populate('bookingId', 'bookingCode contactInfo')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -698,6 +773,67 @@ class TicketService {
     return Ticket.findByTrip(tripId, filters);
   }
 
+  static async confirmCashPaymentForBooking(booking, context = {}) {
+    if (!booking || booking.paymentMethod !== 'cash') {
+      return null;
+    }
+
+    const paidAt = booking.paidAt || new Date();
+    let payment = null;
+
+    const paymentId = String(booking.paymentId || '');
+    if (/^[a-f\d]{24}$/i.test(paymentId)) {
+      payment = await Payment.findOne({
+        _id: paymentId,
+        bookingId: booking._id,
+        paymentMethod: 'cash',
+      });
+    }
+
+    if (!payment) {
+      payment = await Payment.findOne({
+        bookingId: booking._id,
+        paymentMethod: 'cash',
+      }).sort({ createdAt: -1 });
+    }
+
+    if (payment && payment.status !== 'completed') {
+      if (!['pending', 'processing'].includes(payment.status)) {
+        throw new Error(`Không thể xác nhận giao dịch tiền mặt ở trạng thái ${payment.status}`);
+      }
+
+      payment.markAsCompleted(`CASH-${payment.paymentCode}`, {
+        source: 'trip_manager_verify_ticket',
+        paymentType: 'cash_on_boarding',
+        ticketId: context.ticketId,
+        ticketCode: context.ticketCode,
+        tripId: context.tripId,
+        verifiedBy: context.verifiedBy,
+        confirmedAt: paidAt,
+      });
+      await payment.save();
+    }
+
+    if (
+      booking.paymentStatus !== 'paid' ||
+      !booking.paidAt ||
+      (payment && String(booking.paymentId || '') !== String(payment._id))
+    ) {
+      booking.paymentStatus = 'paid';
+      booking.paymentMethod = 'cash';
+      booking.paidAt = paidAt;
+      if (payment) {
+        booking.paymentId = payment._id;
+      }
+      if (booking.status === 'pending' || booking.isHeld) {
+        booking.confirm();
+      }
+      await booking.save();
+    }
+
+    return payment;
+  }
+
   /**
    * Verify ticket QR code
    * @param {string} qrCodeData - Encrypted QR data
@@ -707,6 +843,8 @@ class TicketService {
    */
   static async verifyTicketQR(qrCodeData, tripId, verifiedBy, confirmPayment = false) {
     try {
+      const shouldConfirmPayment = confirmPayment === true || confirmPayment === 'true';
+
       // Verify QR code structure and data
       const qrVerification = await QRService.verifyTicketQR(qrCodeData, { tripId });
 
@@ -729,6 +867,23 @@ class TicketService {
           success: false,
           error: 'Vé không tồn tại trong hệ thống',
         };
+      }
+
+      const booking = ticket.bookingId;
+      const ticketBelongsToTrip = ticket.tripId._id.toString() === tripId;
+      if (
+        ticketBelongsToTrip &&
+        ticket.status !== 'cancelled' &&
+        booking &&
+        booking.paymentMethod === 'cash' &&
+        booking.paymentStatus === 'paid'
+      ) {
+        await this.confirmCashPaymentForBooking(booking, {
+          ticketId: ticket._id,
+          ticketCode: ticket.ticketCode,
+          tripId,
+          verifiedBy,
+        });
       }
 
       // Check ticket status
@@ -757,7 +912,7 @@ class TicketService {
       }
 
       // Check if ticket matches the trip
-      if (ticket.tripId._id.toString() !== tripId) {
+      if (!ticketBelongsToTrip) {
         return {
           success: false,
           error: 'Vé không thuộc chuyến xe này',
@@ -766,9 +921,8 @@ class TicketService {
       }
 
       // Check if cash payment needs confirmation
-      const booking = ticket.bookingId;
-      if (booking && booking.paymentMethod === 'cash' && booking.paymentStatus === 'pending') {
-        if (!confirmPayment) {
+      if (booking && booking.paymentMethod === 'cash') {
+        if (booking.paymentStatus === 'pending' && !shouldConfirmPayment) {
           // Return ticket info but don't mark as used yet - frontend will show payment confirmation modal
           return {
             success: true,
@@ -776,11 +930,15 @@ class TicketService {
             ticket,
             passengers: ticket.passengers,
           };
-        } else {
-          // Confirm payment received
-          booking.paymentStatus = 'paid';
-          booking.paidAt = new Date();
-          await booking.save();
+        }
+
+        if (booking.paymentStatus === 'pending' || booking.paymentStatus === 'paid') {
+          await this.confirmCashPaymentForBooking(booking, {
+            ticketId: ticket._id,
+            ticketCode: ticket.ticketCode,
+            tripId,
+            verifiedBy,
+          });
         }
       }
 
@@ -814,7 +972,7 @@ class TicketService {
     // Get ticket with populated references
     const ticket = await Ticket.findById(ticketId)
       .populate('bookingId')
-      .populate('operatorId', 'companyName phone email');
+      .populate('operatorId', 'operatorName companyName phone email');
 
     if (!ticket) {
       throw new Error('Không tìm thấy vé');
@@ -911,7 +1069,7 @@ class TicketService {
     const oldTicket = await Ticket.findById(ticketId)
       .populate('bookingId')
       .populate('tripId')
-      .populate('operatorId', 'companyName phone email');
+      .populate('operatorId', 'operatorName companyName phone email');
 
     if (!oldTicket) {
       throw new Error('Không tìm thấy vé');

@@ -3,13 +3,12 @@ const logger = require('../utils/logger');
 
 const connectDB = async () => {
   try {
-    const MONGODB_URI = process.env.NODE_ENV === 'test'
-      ? process.env.MONGODB_TEST_URI
-      : process.env.MONGODB_URI;
+    const MONGODB_URI =
+      process.env.NODE_ENV === 'test' ? process.env.MONGODB_TEST_URI : process.env.MONGODB_URI;
 
     const conn = await mongoose.connect(MONGODB_URI);
 
-    logger.success(`MongoDB Đã kết nối: ${conn.connection.host}`);
+    logger.success(`MongoDB Đã kết nối: ${conn.connection.port}/${conn.connection.name}`);
 
     // Connection events
     mongoose.connection.on('error', (err) => {

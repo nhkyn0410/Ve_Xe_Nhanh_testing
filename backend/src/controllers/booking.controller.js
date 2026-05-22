@@ -301,16 +301,16 @@ exports.getBookingById = async (req, res) => {
 exports.getBookingByCode = async (req, res) => {
   try {
     const { bookingCode } = req.params;
-    const { phone } = req.query;
+    const { phone, email } = req.query;
 
-    if (!phone) {
+    if (!phone && !email) {
       return res.status(400).json({
         status: 'error',
-        message: 'Số điện thoại là bắt buộc',
+        message: 'Số điện thoại hoặc email là bắt buộc',
       });
     }
 
-    const booking = await BookingService.getBookingByCode(bookingCode, phone);
+    const booking = await BookingService.getBookingByCode(bookingCode, { phone, email });
 
     res.status(200).json({
       status: 'success',

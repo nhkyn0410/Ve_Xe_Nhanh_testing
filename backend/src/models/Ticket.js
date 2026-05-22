@@ -275,7 +275,7 @@ TicketSchema.statics.findByCustomer = function (customerId, filters = {}) {
 
   return this.find(query)
     .populate('tripId')
-    .populate('operatorId', 'companyName phone email logo')
+    .populate('operatorId', 'operatorName companyName phone email logo')
     .sort({ createdAt: -1 });
 };
 
@@ -305,7 +305,7 @@ TicketSchema.statics.findByTrip = function (tripId, filters = {}) {
 TicketSchema.statics.findByCode = function (ticketCode) {
   return this.findOne({ ticketCode })
     .populate('tripId')
-    .populate('operatorId', 'companyName phone email logo')
+    .populate('operatorId', 'operatorName companyName phone email logo')
     .populate('bookingId');
 };
 
