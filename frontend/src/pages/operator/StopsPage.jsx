@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Form, Input, InputNumber, Modal, Select as AntSelect, message } from 'antd';
-import { MapContainer, Marker, Popup, ScaleControl, TileLayer, useMap, ZoomControl } from 'react-leaflet';
+import {
+  MapContainer,
+  Marker,
+  Popup,
+  ScaleControl,
+  TileLayer,
+  useMap,
+  ZoomControl,
+} from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './StopsPage.css';
@@ -149,10 +157,14 @@ const StopsMap = ({ stops }) => {
                 <div style={{ font: '700 13px var(--font-display)', color: '#0F172A' }}>
                   {stop.name}
                 </div>
-                <div style={{ marginTop: 4, font: '400 12px var(--font-display)', color: '#475569' }}>
+                <div
+                  style={{ marginTop: 4, font: '400 12px var(--font-display)', color: '#475569' }}
+                >
                   {stop.address || getRegionName(stop)}
                 </div>
-                <div style={{ marginTop: 8, font: '600 12px var(--font-display)', color: type.color }}>
+                <div
+                  style={{ marginTop: 8, font: '600 12px var(--font-display)', color: type.color }}
+                >
                   {type.label} · {stop.status === 'inactive' ? 'Ngừng' : 'Hoạt động'}
                 </div>
               </div>
@@ -200,7 +212,9 @@ const SummaryMetric = ({ label, value, hint, icon, tone = '#006481' }) => (
         {label}
       </div>
       {hint && (
-        <div style={{ marginTop: 2, font: '400 11.5px var(--font-display)', color: 'var(--vxn-fg-5)' }}>
+        <div
+          style={{ marginTop: 2, font: '400 11.5px var(--font-display)', color: 'var(--vxn-fg-5)' }}
+        >
           {hint}
         </div>
       )}
@@ -445,7 +459,13 @@ const StopsPage = () => {
               <div style={{ font: '700 16px var(--font-display)', color: 'var(--vxn-ink)' }}>
                 Bản đồ điểm dừng theo khu vực
               </div>
-              <div style={{ marginTop: 3, font: '400 12px var(--font-display)', color: 'var(--vxn-fg-5)' }}>
+              <div
+                style={{
+                  marginTop: 3,
+                  font: '400 12px var(--font-display)',
+                  color: 'var(--vxn-fg-5)',
+                }}
+              >
                 Hiển thị {stats.geocoded}/{stats.total} điểm có tọa độ trong danh mục.
               </div>
             </div>
@@ -494,7 +514,13 @@ const StopsPage = () => {
             <div style={{ font: '700 16px var(--font-display)', color: 'var(--vxn-ink)' }}>
               Thống kê tổng hợp
             </div>
-            <div style={{ marginTop: 4, font: '400 12px var(--font-display)', color: 'var(--vxn-fg-5)' }}>
+            <div
+              style={{
+                marginTop: 4,
+                font: '400 12px var(--font-display)',
+                color: 'var(--vxn-fg-5)',
+              }}
+            >
               Theo toàn bộ danh mục điểm dừng hiện có của nhà xe.
             </div>
           </div>
@@ -619,11 +645,7 @@ const StopsPage = () => {
           borderBottom: 0,
         }}
       >
-        <SearchInput
-          value={q}
-          onChange={setQ}
-          placeholder="Tìm mã, tên, địa chỉ điểm dừng…"
-        />
+        <SearchInput value={q} onChange={setQ} placeholder="Tìm mã, tên, địa chỉ điểm dừng…" />
         <div style={{ display: 'flex', gap: 10, marginLeft: 'auto' }}>
           <Select
             value={typeF}
@@ -737,8 +759,7 @@ const StopsPage = () => {
                   <tr
                     key={s._id || getStopCode(s)}
                     style={{
-                      borderBottom:
-                        i < pageRows.length - 1 ? '1px solid var(--vxn-border)' : 0,
+                      borderBottom: i < pageRows.length - 1 ? '1px solid var(--vxn-border)' : 0,
                     }}
                   >
                     <td
@@ -822,7 +843,9 @@ const StopsPage = () => {
                         ) : (
                           <span style={{ color: 'var(--vxn-fg-5)' }}>0 tuyến</span>
                         )}
-                        {routeRefs.length > 3 && <Chip tone="neutral">+{routeRefs.length - 3}</Chip>}
+                        {routeRefs.length > 3 && (
+                          <Chip tone="neutral">+{routeRefs.length - 3}</Chip>
+                        )}
                       </div>
                     </td>
                     <td
@@ -891,10 +914,7 @@ const StopsPage = () => {
             {Math.min(currentPage * PAGE_SIZE, filtered.length)} / {filtered.length} điểm dừng
           </span>
           <div style={{ display: 'flex', gap: 6 }}>
-            <PageBtn
-              disabled={currentPage <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
+            <PageBtn disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
               ‹
             </PageBtn>
             {pageNumbers.map((n) => (
@@ -952,7 +972,7 @@ const StopsPage = () => {
           </Form.Item>
 
           <div className="grid grid-cols-2 gap-4">
-            <Form.Item name="city" label="Quận/Huyện/Thành phố">
+            <Form.Item name="city" label="Phường/Xã">
               <Input placeholder="Ví dụ: TP. Thủ Đức" />
             </Form.Item>
             <Form.Item name="province" label="Tỉnh/Thành phố">
