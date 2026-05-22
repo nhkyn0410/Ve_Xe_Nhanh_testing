@@ -206,16 +206,19 @@ TicketSchema.statics.generateTicketCode = async function () {
   const date = new Date();
   const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
 
-  let code;
-  let exists = true;
-
-  while (exists) {
+  const generateUniqueCode = async () => {
     const random = Math.random().toString(36).substring(2, 10).toUpperCase();
-    code = `TKT-${dateStr}-${random}`;
-    exists = await this.findOne({ ticketCode: code });
-  }
+    const code = `TKT-${dateStr}-${random}`;
+    const exists = await this.findOne({ ticketCode: code });
 
-  return code;
+    if (exists) {
+      return generateUniqueCode();
+    }
+
+    return code;
+  };
+
+  return generateUniqueCode();
 };
 
 /**

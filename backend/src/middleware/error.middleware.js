@@ -1,7 +1,7 @@
 /**
  * Error handling middleware
  */
-
+const logger = require('../utils/logger');
 // Custom error class
 class AppError extends Error {
   constructor(message, statusCode) {

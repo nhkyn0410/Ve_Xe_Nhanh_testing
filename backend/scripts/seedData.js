@@ -15,7 +15,7 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const crypto = require('crypto');
-const logger = require('../utils/logger');
+const logger = require('../src/utils/logger');
 
 // Import models
 const User = require('../src/models/User');
@@ -50,7 +50,7 @@ const connectDB = async () => {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
-    logger.log('MongoDB Connected');
+    logger.info('MongoDB Connected');
   } catch (error) {
     logger.error('MongoDB Connection Error:', error);
     process.exit(1);
@@ -61,8 +61,10 @@ const connectDB = async () => {
 const createWithHooks = async (Model, docs) => {
   const createdDocs = [];
 
-  for (const doc of docs) {
-    const record = new Model(doc);
+  for (let i = 0; i < docs.length; i += 1) {
+    const record = new Model(docs[i]);
+    // Saving inside a loop is intentional so model pre-save hooks run reliably
+    // eslint-disable-next-line no-await-in-loop
     await record.save();
     createdDocs.push(record);
   }
@@ -70,24 +72,24 @@ const createWithHooks = async (Model, docs) => {
   return createdDocs;
 };
 
+
+
 // Enhanced seed data with full journey tracking
 const seedData = async () => {
   try {
-    logger.log('\nStarting to seed database with enhanced data...\n');
+    logger.info('\nStarting to seed database with enhanced data...\n');
 
     // ==================== CLEAR ALL EXISTING DATA ====================
-    logger.log('Clearing ALL existing data...');
+    logger.info('Clearing ALL existing data...');
     const collections = [User, BusOperator, Employee, Route, Bus, Trip, Booking, Ticket];
     // Conditionally clear Voucher and Complaint if models loaded
     if (Voucher) collections.push(Voucher);
     if (Complaint) collections.push(Complaint);
-    for (const Model of collections) {
-      await Model.deleteMany({});
-    }
-    logger.log('Cleared all existing data\n');
+    await Promise.all(collections.map((Model) => Model.deleteMany({})));
+    logger.info('Cleared all existing data\n');
 
     // ==================== USERS ====================
-    logger.log('Creating Users...');
+    logger.info('Creating Users...');
 
     // NOTE: DO NOT use bcrypt.hash() here. All models have pre-save hooks
     // that auto-hash passwords. Passing hashed passwords causes DOUBLE-HASHING
@@ -207,7 +209,7 @@ const seedData = async () => {
       },
     ]);
 
-    logger.log(`Created ${operators.length} bus operators\n`);
+    logger.info(`Created ${operators.length} bus operators\n`);
 
     // ==================== EMPLOYEES ====================
     // IMPORTANT: Pass plain-text passwords! Employee model has pre-save hook that auto-hashes.
@@ -322,7 +324,7 @@ const seedData = async () => {
       },
     ]);
 
-    logger.log(`Created ${employees.length} employees\n`);
+    logger.info(`Created ${employees.length} employees\n`);
 
     // ==================== BUSES ====================
     console.log('Creating Buses with Seat Layouts...');
@@ -662,9 +664,7 @@ const seedData = async () => {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     // Helper for trip dates
-    const tripTime = (dayOffset, hour) => {
-      return new Date(today.getTime() + dayOffset * 24 * 60 * 60 * 1000 + hour * 60 * 60 * 1000);
-    };
+    const tripTime = (dayOffset, hour) => new Date(today.getTime() + dayOffset * 24 * 60 * 60 * 1000 + hour * 60 * 60 * 1000);
 
     const trips = await Trip.create([
       // ===== TODAY =====
@@ -1005,7 +1005,7 @@ const seedData = async () => {
       },
     ]);
 
-    logger.log(`Created ${trips.length} trips with journey tracking\n`);
+    logger.info(`Created ${trips.length} trips with journey tracking\n`);
 
     // ==================== VOUCHERS ====================
     console.log('Creating Vouchers...');
@@ -1135,7 +1135,7 @@ const seedData = async () => {
     });
 
     const qrData1 = JSON.stringify({ bookingCode: 'BK000001', tripId: trips[0]._id.toString() });
-    const ticket1 = await Ticket.create({
+    await Ticket.create({
       ticketCode: 'TK000001',
       bookingId: booking1._id,
       tripId: trips[0]._id,
@@ -1195,7 +1195,7 @@ const seedData = async () => {
     });
 
     const qrData2 = JSON.stringify({ bookingCode: 'BK000002', tripId: trips[1]._id.toString() });
-    const ticket2 = await Ticket.create({
+    await Ticket.create({
       ticketCode: 'TK000002',
       bookingId: booking2._id,
       tripId: trips[1]._id,
@@ -1253,7 +1253,7 @@ const seedData = async () => {
     });
 
     const qrData3 = JSON.stringify({ bookingCode: 'BK000003', tripId: trips[4]._id.toString() });
-    const ticket3 = await Ticket.create({
+    await Ticket.create({
       ticketCode: 'TK000003',
       bookingId: booking3._id,
       tripId: trips[4]._id,
@@ -1281,7 +1281,7 @@ const seedData = async () => {
     // ==================== COMPLAINTS ====================
     console.log('Creating sample Complaints...');
 
-    const complaints = await Complaint.create([
+    const complaints = await createWithHooks(Complaint, [
       {
         subject: 'Xe khởi hành trễ 30 phút',
         description: 'Chuyến HCM - Đà Lạt ngày hôm nay khởi hành trễ 30 phút so với lịch, không có thông báo trước.',
@@ -1350,9 +1350,9 @@ const seedData = async () => {
     console.log(`Created ${complaints.length} complaints\n`);
 
     // ==================== SUMMARY ====================
-    logger.log('\n==================== SEED SUMMARY ====================');
-    logger.log(`Users: ${users.length} (1 admin + ${users.length - 1} customers)`);
-    logger.log(`Bus Operators: ${operators.length}`);
+    logger.info('\n==================== SEED SUMMARY ====================');
+    logger.info(`Users: ${users.length} (1 admin + ${users.length - 1} customers)`);
+    logger.info(`Bus Operators: ${operators.length}`);
     console.log(`Employees: ${employees.length}`);
     console.log(`   - Drivers: ${employees.filter(e => e.role === 'driver').length}`);
     console.log(`   - Trip Managers: ${employees.filter(e => e.role === 'trip_manager').length}`);

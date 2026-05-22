@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const logger = require('../utils/logger');
-
 
 const userSchema = new mongoose.Schema(
   {
@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: function () {
+      required() {
         // Password chỉ bắt buộc nếu không phải OAuth user
         return !this.googleId && !this.facebookId;
       },
@@ -151,7 +151,7 @@ const userSchema = new mongoose.Schema(
         expiresAt: {
           type: Date,
           // Points expire after 1 year
-          default: function () {
+          default() {
             if (this.type === 'earn') {
               return new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
             }
@@ -189,9 +189,10 @@ const userSchema = new mongoose.Schema(
     timestamps: true, // Tự động thêm createdAt và updatedAt
     toJSON: {
       virtuals: true,
-      transform: function (doc, ret) {
-        delete ret.__v;
-        return ret;
+      transform(_doc, ret) {
+        const sanitizedRet = { ...ret };
+        Reflect.deleteProperty(sanitizedRet, '__v');
+        return sanitizedRet;
       },
     },
     toObject: { virtuals: true },
@@ -225,7 +226,10 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
     logger.info('=== so sánh mật khẩu ===');
     logger.info('Độ dài mật khẩu ứng viên:', candidatePassword ? candidatePassword.length : 0);
     logger.info('Hash lưu trữ tồn tại:', !!this.password);
-    logger.info('Xem trước hash lưu trữ:', this.password ? this.password.substring(0, 20) + '...' : 'KHÔNG CÓ');
+    logger.info(
+      'Xem trước hash lưu trữ:',
+      this.password ? `${this.password.substring(0, 20)}...` : 'KHÔNG CÓ'
+    );
 
     const result = await bcrypt.compare(candidatePassword, this.password);
     logger.info('Kết quả so sánh:', result);
@@ -238,7 +242,6 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 
 // Instance method - Tạo password reset token
 userSchema.methods.createPasswordResetToken = function () {
-  const crypto = require('crypto');
   const resetToken = crypto.randomBytes(32).toString('hex');
 
   // Hash token và lưu vào database
@@ -253,14 +256,10 @@ userSchema.methods.createPasswordResetToken = function () {
 
 // Instance method - Tạo email verification token
 userSchema.methods.createEmailVerificationToken = function () {
-  const crypto = require('crypto');
   const verificationToken = crypto.randomBytes(32).toString('hex');
 
   // Hash token và lưu vào database
-  this.emailVerificationToken = crypto
-    .createHash('sha256')
-    .update(verificationToken)
-    .digest('hex');
+  this.emailVerificationToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
 
   // Trả về token chưa hash để gửi qua email
   return verificationToken;
@@ -321,12 +320,7 @@ userSchema.methods.removeExpiredPoints = async function () {
 
   // Find all expired points that haven't been marked as expired
   this.pointsHistory.forEach((entry) => {
-    if (
-      entry.type === 'earn' &&
-      !entry.isExpired &&
-      entry.expiresAt &&
-      entry.expiresAt < now
-    ) {
+    if (entry.type === 'earn' && !entry.isExpired && entry.expiresAt && entry.expiresAt < now) {
       entry.isExpired = true;
       expiredPoints += entry.points;
     }

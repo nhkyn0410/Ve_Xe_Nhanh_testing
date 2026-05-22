@@ -110,7 +110,7 @@ class AuthService {
     });
 
     logger.info('Người dùng đã tạo thành công với ID:', user._id);
-    logger.info('Mật khẩu was hashed:', user.password ? user.password.substring(0, 20) + '...' : 'NONE');
+    logger.info('Mật khẩu was hashed:', user.password ? `${user.password.substring(0, 20)}...` : 'NONE');
 
     // Tạo email verification token
     const verificationToken = user.createEmailVerificationToken();
@@ -291,7 +291,7 @@ class AuthService {
         fullName: name,
         facebookId: id,
         avatar: picture?.data?.url,
-        isEmailVerified: email ? true : false,
+        isEmailVerified: Boolean(email),
         // OAuth users không cần password
         phone: `FACEBOOK_${id}`, // Temporary phone, user can update later
       });

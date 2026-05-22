@@ -46,7 +46,7 @@ const EmployeeSchema = new mongoose.Schema(
       type: String,
       trim: true,
       validate: {
-        validator: function (v) {
+        validator(v) {
           if (!v) return true; // Optional field
           return /^[0-9]{9,12}$/.test(v); // CMND: 9 digits, CCCD: 12 digits
         },
@@ -62,7 +62,7 @@ const EmployeeSchema = new mongoose.Schema(
     dateOfBirth: {
       type: Date,
       validate: {
-        validator: function (v) {
+        validator(v) {
           if (!v) return true;
           const age = (new Date() - new Date(v)) / (365.25 * 24 * 60 * 60 * 1000);
           return age >= 18 && age <= 70; // Age between 18 and 70
@@ -95,7 +95,7 @@ const EmployeeSchema = new mongoose.Schema(
       uppercase: true,
       trim: true,
       validate: {
-        validator: function (v) {
+        validator(v) {
           // Only required for drivers
           if (this.role === 'driver') {
             return !!v;
@@ -114,7 +114,7 @@ const EmployeeSchema = new mongoose.Schema(
         message: 'Hạng giấy phép không hợp lệ',
       },
       validate: {
-        validator: function (v) {
+        validator(v) {
           // Only required for drivers
           if (this.role === 'driver') {
             return !!v;
@@ -128,7 +128,7 @@ const EmployeeSchema = new mongoose.Schema(
     licenseExpiry: {
       type: Date,
       validate: {
-        validator: function (v) {
+        validator(v) {
           // Only required for drivers
           if (this.role === 'driver') {
             if (!v) return false;
@@ -159,7 +159,7 @@ const EmployeeSchema = new mongoose.Schema(
     terminationDate: {
       type: Date,
       validate: {
-        validator: function (v) {
+        validator(v) {
           if (!v) return true;
           return v > this.hireDate; // Must be after hire date
         },
@@ -171,7 +171,7 @@ const EmployeeSchema = new mongoose.Schema(
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  },
+  }
 );
 
 /**
@@ -215,7 +215,7 @@ EmployeeSchema.pre('save', async function (next) {
  * @returns {Promise<Boolean>}
  */
 EmployeeSchema.methods.comparePassword = async function (candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
 /**
@@ -266,8 +266,7 @@ EmployeeSchema.virtual('yearsOfService').get(function () {
 EmployeeSchema.virtual('isLicenseExpiringSoon').get(function () {
   if (this.role !== 'driver' || !this.licenseExpiry) return false;
 
-  const daysUntilExpiry =
-    (new Date(this.licenseExpiry) - new Date()) / (24 * 60 * 60 * 1000);
+  const daysUntilExpiry = (new Date(this.licenseExpiry) - new Date()) / (24 * 60 * 60 * 1000);
   return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
 });
 

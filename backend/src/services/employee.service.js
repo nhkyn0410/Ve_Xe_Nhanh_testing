@@ -1,6 +1,6 @@
 const Employee = require('../models/Employee');
 const BusOperator = require('../models/BusOperator');
-const logger = require('../utils/logger');
+const Trip = require('../models/Trip');
 
 /**
  * Employee Service
@@ -55,7 +55,7 @@ class EmployeeService {
     });
 
     // Return without password
-    return await Employee.findById(employee._id).select('-password');
+    return Employee.findById(employee._id).select('-password');
   }
 
   /**
@@ -187,7 +187,7 @@ class EmployeeService {
 
     await employee.save();
 
-    return await Employee.findById(employee._id).select('-password');
+    return Employee.findById(employee._id).select('-password');
   }
 
   /**
@@ -245,7 +245,7 @@ class EmployeeService {
 
     await employee.save();
 
-    return await Employee.findById(employee._id).select('-password');
+    return Employee.findById(employee._id).select('-password');
   }
 
   /**
@@ -459,7 +459,7 @@ class EmployeeService {
     }
 
     // Return without password
-    return await Employee.findById(employee._id).select('-password');
+    return Employee.findById(employee._id).select('-password');
   }
 
   /**

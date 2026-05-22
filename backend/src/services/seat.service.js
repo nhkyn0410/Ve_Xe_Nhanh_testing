@@ -6,6 +6,7 @@ const logger = require('../utils/logger');
 let websocketService;
 const getWebSocketService = () => {
   if (!websocketService) {
+    // eslint-disable-next-line global-require
     websocketService = require('./websocket.service');
   }
   return websocketService;
@@ -27,27 +28,18 @@ class SeatService {
     const redis = getRedisClient();
 
     try {
-      // Check if all seats are available
-      for (const seat of seats) {
-        const key = `trip:${tripId}:seat:${seat}`;
-        const locked = await redis.get(key);
-
+      // Check if all seats are available (batch requests)
+      const checkKeys = seats.map((seat) => `trip:${tripId}:seat:${seat}`);
+      const checkResults = await Promise.all(checkKeys.map((k) => redis.get(k)));
+      for (let i = 0; i < seats.length; i += 1) {
+        const locked = checkResults[i];
         if (locked && locked !== userId) {
-          throw new Error(`Ghế ${seat} đã được người khác chọn`);
+          throw new Error(`Ghế ${seats[i]} đã được người khác chọn`);
         }
       }
 
-      // Lock all seats
-      const lockPromises = seats.map((seat) => {
-        const key = `trip:${tripId}:seat:${seat}`;
-        // TTL: 15 minutes (900 seconds)
-        return redis.set(key, userId, {
-          EX: 900,
-          NX: false, // Allow overwrite if same user
-        });
-      });
-
-      await Promise.all(lockPromises);
+      // Lock all seats in parallel (TTL: 15 minutes)
+      await Promise.all(seats.map((seat) => redis.set(`trip:${tripId}:seat:${seat}`, userId, { EX: 900, NX: false })));
 
       // Also update Redis with trip seat availability count
       await this.updateTripSeatAvailability(tripId);
@@ -78,15 +70,15 @@ class SeatService {
     const redis = getRedisClient();
 
     try {
-      for (const seat of seats) {
-        const key = `trip:${tripId}:seat:${seat}`;
-        const locked = await redis.get(key);
-
-        // Only unlock if owned by this user
-        if (locked === userId) {
-          await redis.del(key);
+      const keys = seats.map((seat) => `trip:${tripId}:seat:${seat}`);
+      const lockedVals = await Promise.all(keys.map((k) => redis.get(k)));
+      const delPromises = [];
+      for (let i = 0; i < seats.length; i += 1) {
+        if (lockedVals[i] === userId) {
+          delPromises.push(redis.del(keys[i]));
         }
       }
+      if (delPromises.length) await Promise.all(delPromises);
 
       // Update trip seat availability
       await this.updateTripSeatAvailability(tripId);
@@ -111,10 +103,9 @@ class SeatService {
    * Xóa lock khỏi Redis vì đã được lưu vào MongoDB
    * @param {String} tripId - Trip ID
    * @param {Array<String>} seats - Seat numbers
-   * @param {String} userId - User ID
-   * @returns {Promise<Boolean>}
-   */
-  static async confirmSeats(tripId, seats, userId) {
+  * @returns {Promise<Boolean>}
+  */
+  static async confirmSeats(tripId, seats) {
     const redis = getRedisClient();
 
     try {
@@ -196,22 +187,24 @@ class SeatService {
       // Get all seat numbers from bus layout
       const allSeats = this.extractSeatsFromLayout(trip.busId.seatLayout);
 
-      // Check each seat
-      for (const seat of allSeats) {
-        // First check if booked in MongoDB
+      // Prepare lists for parallel Redis checks
+      const toCheck = [];
+      const seatOrder = [];
+      for (let i = 0; i < allSeats.length; i += 1) {
+        const seat = allSeats[i];
         if (trip.bookedSeats.includes(seat)) {
           seatStatus[seat] = 'booked';
-          continue;
-        }
-
-        // Then check if locked in Redis
-        const key = `trip:${tripId}:seat:${seat}`;
-        const locked = await redis.get(key);
-
-        if (locked) {
-          seatStatus[seat] = 'locked';
         } else {
-          seatStatus[seat] = 'available';
+          toCheck.push(`trip:${tripId}:seat:${seat}`);
+          seatOrder.push(seat);
+        }
+      }
+
+      if (toCheck.length) {
+        const lockedResults = await Promise.all(toCheck.map((k) => redis.get(k)));
+        for (let i = 0; i < lockedResults.length; i += 1) {
+          const seat = seatOrder[i];
+          seatStatus[seat] = lockedResults[i] ? 'locked' : 'available';
         }
       }
 
@@ -321,15 +314,15 @@ class SeatService {
     const redis = getRedisClient();
 
     try {
-      for (const seat of seats) {
-        const key = `trip:${tripId}:seat:${seat}`;
-        const locked = await redis.get(key);
-
-        // Only extend if owned by this user
-        if (locked === userId) {
-          await redis.expire(key, 900); // Extend to 15 minutes
+      const keys = seats.map((seat) => `trip:${tripId}:seat:${seat}`);
+      const lockedVals = await Promise.all(keys.map((k) => redis.get(k)));
+      const expirePromises = [];
+      for (let i = 0; i < seats.length; i += 1) {
+        if (lockedVals[i] === userId) {
+          expirePromises.push(redis.expire(keys[i], 900));
         }
       }
+      if (expirePromises.length) await Promise.all(expirePromises);
 
       return true;
     } catch (error) {
@@ -349,12 +342,10 @@ class SeatService {
 
     try {
       const result = {};
-
-      for (const seat of seats) {
-        const key = `trip:${tripId}:seat:${seat}`;
-        const ttl = await redis.ttl(key);
-
-        result[seat] = ttl > 0 ? ttl : 0;
+      const keys = seats.map((seat) => `trip:${tripId}:seat:${seat}`);
+      const ttls = await Promise.all(keys.map((k) => redis.ttl(k)));
+      for (let i = 0; i < seats.length; i += 1) {
+        result[seats[i]] = ttls[i] > 0 ? ttls[i] : 0;
       }
 
       return result;
@@ -378,11 +369,12 @@ class SeatService {
       const pattern = `trip:${tripId}:seat:*`;
       const keys = await redis.keys(pattern);
 
-      for (const key of keys) {
-        const ttl = await redis.ttl(key);
-        if (ttl <= 0) {
-          await redis.del(key);
-          cleanedCount++;
+      if (keys && keys.length) {
+        const ttls = await Promise.all(keys.map((k) => redis.ttl(k)));
+        const toDelete = keys.filter((k, idx) => ttls[idx] <= 0);
+        if (toDelete.length) {
+          await Promise.all(toDelete.map((k) => redis.del(k)));
+          cleanedCount += toDelete.length;
         }
       }
 
@@ -435,21 +427,23 @@ class SeatService {
         booked: [],
       };
 
-      for (const seat of seats) {
-        // Check if booked in MongoDB
+      const toCheck = [];
+      const seatOrder = [];
+      for (let i = 0; i < seats.length; i += 1) {
+        const seat = seats[i];
         if (trip.bookedSeats.includes(seat)) {
           result.booked.push(seat);
-          continue;
-        }
-
-        // Check if locked in Redis
-        const key = `trip:${tripId}:seat:${seat}`;
-        const locked = await redis.get(key);
-
-        if (locked) {
-          result.locked.push(seat);
         } else {
-          result.available.push(seat);
+          toCheck.push(`trip:${tripId}:seat:${seat}`);
+          seatOrder.push(seat);
+        }
+      }
+
+      if (toCheck.length) {
+        const lockedResults = await Promise.all(toCheck.map((k) => redis.get(k)));
+        for (let i = 0; i < lockedResults.length; i += 1) {
+          if (lockedResults[i]) result.locked.push(seatOrder[i]);
+          else result.available.push(seatOrder[i]);
         }
       }
 

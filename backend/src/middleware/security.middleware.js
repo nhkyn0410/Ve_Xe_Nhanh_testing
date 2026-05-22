@@ -1,7 +1,7 @@
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const hpp = require('hpp');
-
+const logger = require('../utils/logger');
 /**
  * Security Middleware
  * Tổng hợp các middleware bảo mật
@@ -11,29 +11,26 @@ const hpp = require('hpp');
  * Sanitize data to prevent NoSQL injection attacks
  * Removes any keys that start with '$' or contain '.'
  */
-const sanitizeData = () => {
-  return mongoSanitize({
+const sanitizeData = () =>
+  mongoSanitize({
     replaceWith: '_',
-    onSanitize: ({ req, key }) => {
+    onSanitize: ({ key }) => {
       logger.warn(`[Bảo mật] Phát hiện cố gắng tiêm NoSQL: ${key}`);
     },
   });
-};
 
 /**
  * Prevent XSS attacks by sanitizing user input
  * Clean user input from malicious HTML/JavaScript
  */
-const preventXSS = () => {
-  return xss();
-};
+const preventXSS = () => xss();
 
 /**
  * Prevent HTTP Parameter Pollution attacks
  * Protects against duplicate parameters in query strings
  */
-const preventHPP = () => {
-  return hpp({
+const preventHPP = () =>
+  hpp({
     whitelist: [
       // Các parameters được phép duplicate
       'price',
@@ -42,7 +39,6 @@ const preventHPP = () => {
       'date',
     ],
   });
-};
 
 /**
  * Security headers configuration
@@ -130,27 +126,33 @@ const detectAttackPatterns = (req, res, next) => {
     /<iframe/gi, // Iframe injection
   ];
 
-  const checkString = (str) => {
-    return suspiciousPatterns.some((pattern) => pattern.test(str));
-  };
+  const checkString = (str) => suspiciousPatterns.some((pattern) => pattern.test(str));
 
   // Check all string values in request
   const checkObject = (obj, path = '') => {
-    for (const key in obj) {
-      const value = obj[key];
+    const entries = Object.entries(obj);
+
+    for (let index = 0; index < entries.length; index += 1) {
+      const [key, value] = entries[index];
       const currentPath = path ? `${path}.${key}` : key;
 
       if (typeof value === 'string' && checkString(value)) {
-        logSecurityEvent('ATTACK_PATTERN_DETECTED', {
-          field: currentPath,
-          value: value.substring(0, 100),
-        }, req);
+        logSecurityEvent(
+          'ATTACK_PATTERN_DETECTED',
+          {
+            field: currentPath,
+            value: value.substring(0, 100),
+          },
+          req
+        );
 
         return res.status(400).json({
           status: 'error',
           message: 'Yêu cầu chứa nội dung không hợp lệ',
         });
-      } else if (typeof value === 'object' && value !== null) {
+      }
+
+      if (typeof value === 'object' && value !== null) {
         const result = checkObject(value, currentPath);
         if (result) return result;
       }
@@ -182,7 +184,9 @@ const constantTimeResponse = async (promise, minDelay = 100) => {
   const remaining = Math.max(0, minDelay - elapsed);
 
   if (remaining > 0) {
-    await new Promise((resolve) => setTimeout(resolve, remaining));
+    await new Promise((resolve) => {
+      setTimeout(resolve, remaining);
+    });
   }
 
   return result;

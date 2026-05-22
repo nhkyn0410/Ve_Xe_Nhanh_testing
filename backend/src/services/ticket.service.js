@@ -1,3 +1,4 @@
+const moment = require('moment-timezone');
 const Ticket = require('../models/Ticket');
 const Booking = require('../models/Booking');
 const Trip = require('../models/Trip');
@@ -6,13 +7,14 @@ const { sendEmail, emailTemplates } = require('../config/email');
 const SMSService = require('./sms.service');
 const CancellationService = require('./cancellation.service');
 const { getRedisClient } = require('../config/redis');
-const moment = require('moment-timezone');
+
 const logger = require('../utils/logger');
 
 // Lazy-load BookingService to avoid circular dependency
 let BookingService = null;
 const getBookingService = () => {
   if (!BookingService) {
+    // eslint-disable-next-line global-require
     BookingService = require('./booking.service');
   }
   return BookingService;
@@ -33,7 +35,7 @@ class TicketService {
       // Check if ticket already exists
       const existingTicket = await Ticket.findOne({ bookingId });
       if (existingTicket) {
-        logger.warn('Vé đã tồn tại cho đặt chỗ: ' + bookingId);
+        logger.warn(`Vé đã tồn tại cho đặt chỗ: ${bookingId}`);
         return existingTicket;
       }
 
@@ -94,9 +96,9 @@ class TicketService {
 
       // Create ticket document
       logger.debug('=== CREATING TICKET ===');
-      logger.debug('Đặt chỗ ID: ' + booking._id);
-      logger.debug('Đặt chỗ khách hàngId (raw): ' + booking.customerId);
-      logger.debug('Đặt chỗ khách hàngId type: ' + typeof booking.customerId);
+      logger.debug(`Đặt chỗ ID: ${booking._id}`);
+      logger.debug(`Đặt chỗ khách hàngId (raw): ${booking.customerId}`);
+      logger.debug(`Đặt chỗ khách hàngId type: ${typeof booking.customerId}`);
 
       // Handle both populated (object) and non-populated (ObjectId) customerId
       let ticketCustomerId = null;
@@ -109,8 +111,8 @@ class TicketService {
           ticketCustomerId = booking.customerId;
         }
       }
-      logger.debug('Vé khách hàngId: ' + ticketCustomerId);
-      logger.debug('Is Guest Đặt chỗ: ' + !ticketCustomerId);
+      logger.debug(`Vé khách hàngId: ${ticketCustomerId}`);
+      logger.debug(`Is Guest Đặt chỗ: ${!ticketCustomerId}`);
 
       const ticket = await Ticket.create({
         ticketCode,
@@ -154,10 +156,10 @@ class TicketService {
         status: 'valid',
       });
 
-      logger.success('Vé với QR code đã tạo thành công: ' + ticketCode);
+      logger.success(`Vé với QR code đã tạo thành công: ${ticketCode}`);
       return ticket;
     } catch (error) {
-      logger.error(' Vé genertạiitrên lỗi: ' + error.message);
+      logger.error(`Vé generate lỗi: ${error.message}`);
       throw error;
     }
   }
@@ -201,8 +203,8 @@ class TicketService {
         ticket.markSmsSent();
         await ticket.save();
 
-        logger.success('[DEMO] Email would be đã gửi đến: ' + contactEmail);
-        logger.success('[DEMO] SMS would be đã gửi đến: ' + contactPhone);
+          logger.success(`[DEMO] Email would be đã gửi đến: ${contactEmail}`);
+          logger.success(`[DEMO] SMS would be đã gửi đến: ${contactPhone}`);
 
         return results;
       }
@@ -242,9 +244,9 @@ class TicketService {
 
           ticket.markEmailSent();
           results.email.sent = true;
-          logger.success('Vé email đã gửi đến: ' + contactEmail);
+          logger.success(`Vé email đã gửi đến: ${contactEmail}`);
         } catch (error) {
-          logger.error(' Email đang gửi thất bại: ' + error.message);
+          logger.error(`Email gửi thất bại: ${error.message}`);
           results.email.error = error.message;
         }
       }
@@ -267,12 +269,12 @@ class TicketService {
           if (smsResult.success) {
             ticket.markSmsSent();
             results.sms.sent = true;
-            logger.success('Vé SMS đã gửi đến: ' + contactPhone);
+            logger.success(`Vé SMS đã gửi đến: ${contactPhone}`);
           } else {
             results.sms.error = smsResult.error;
           }
         } catch (error) {
-          logger.error(' SMS đang gửi thất bại: ' + error.message);
+          logger.error(`SMS gửi thất bại: ${error.message}`);
           results.sms.error = error.message;
         }
       }
@@ -281,7 +283,7 @@ class TicketService {
 
       return results;
     } catch (error) {
-      logger.error(' Thông báo đang gửi lỗi: ' + error.message);
+      logger.error(`Thông báo gửi lỗi: ${error.message}`);
       // Return partial results instead of throwing to not fail the booking
       return {
         email: { sent: false, error: error.message },
@@ -340,8 +342,6 @@ class TicketService {
    * @returns {Promise<Object>} OTP request result
    */
   static async requestTicketLookupOTP(ticketCode, phone, email) {
-    const Booking = require('../models/Booking');
-
     // Must have either phone or email
     if (!phone && !email) {
       throw new Error('Phải cung cấp số điện thoại hoặc email');
@@ -375,7 +375,7 @@ class TicketService {
 
     logger.info(`🔐 OTP tra cứu vé cho ${contactMethod} ${contactValue}: ${otp} (Demo: use 123456)`);
 
-    let sentMethods = [];
+    const sentMethods = [];
 
     // Send OTP via SMS if phone provided
     if (contactMethod === 'phone') {
@@ -383,7 +383,7 @@ class TicketService {
         await SMSService.sendOTP(phone, otp);
         sentMethods.push('SMS');
       } catch (error) {
-        logger.error('Không thể gửi OTP SMS: ' + error.message);
+        logger.error(`Không thể gửi OTP SMS: ${error.message}`);
         // Continue anyway - for development, OTP is logged
       }
     }
@@ -410,7 +410,7 @@ class TicketService {
         });
         sentMethods.push('email');
       } catch (error) {
-        logger.error('Không thể gửi OTP email: ' + error.message);
+        logger.error(`Không thể gửi OTP email: ${error.message}`);
       }
     }
 
@@ -433,7 +433,6 @@ class TicketService {
    * @returns {Promise<Object>} Object containing tickets array
    */
   static async verifyTicketLookupOTP(ticketCode, phone, email, otp) {
-    const Booking = require('../models/Booking');
     const redis = getRedisClient();
 
     // Must have either phone or email
@@ -545,9 +544,9 @@ class TicketService {
    */
   static async getCustomerTickets(customerId, filters = {}) {
     logger.debug('=== GET CUSTOMER TICKETS ===');
-    logger.debug('Khách hàng ID: ' + customerId);
-    logger.debug('Khách hàng ID type: ' + typeof customerId);
-    logger.debug('Bộ lọc: ' + JSON.stringify(filters));
+      logger.debug(`Khách hàng ID: ${customerId}`);
+    logger.debug(`Khách hàng ID type: ${typeof customerId}`);
+    logger.debug(`Bộ lọc: ${JSON.stringify(filters)}`);
 
     const query = { customerId };
     const now = new Date();
@@ -611,7 +610,7 @@ class TicketService {
     const skip = (page - 1) * limit;
 
     // Get tickets
-    logger.debug('Ftrtrêngal truy vấn: ' + JSON.stringify(query, null, 2));
+    logger.debug(`Ftrtrêngal truy vấn: ${JSON.stringify(query, null, 2)}`);
     const tickets = await Ticket.find(query)
       .populate('tripId')
       .populate('operatorId', 'companyName phone email logo')
@@ -620,15 +619,15 @@ class TicketService {
       .skip(skip)
       .limit(limit);
 
-    logger.debug('Found vé: ' + tickets.length);
+    logger.debug(`Found vé: ${tickets.length}`);
     if (tickets.length > 0) {
       const firstTicket = tickets[0];
-      logger.debug('First vé khách hàngId: ' + firstTicket.customerId);
-      logger.debug('First vé code: ' + firstTicket.ticketCode);
-      logger.debug('First vé chuyếnId: ' + (firstTicket.tripId ? 'populated' : 'NULL'));
-      logger.debug('First vé nhà điều hànhId: ' + (firstTicket.operatorId ? 'populated' : 'NULL'));
-      logger.debug('First vé đặt chỗId: ' + (firstTicket.bookingId ? 'populated' : 'NULL'));
-      logger.debug('First vé cấu trúc (no QR): ' + JSON.stringify({
+      logger.debug(`First vé khách hàngId: ${firstTicket.customerId}`);
+      logger.debug(`First vé code: ${firstTicket.ticketCode}`);
+      logger.debug(`First vé chuyếnId: ${firstTicket.tripId ? 'populated' : 'NULL'}`);
+      logger.debug(`First vé nhà điều hànhId: ${firstTicket.operatorId ? 'populated' : 'NULL'}`);
+      logger.debug(`First vé đặt chỗId: ${firstTicket.bookingId ? 'populated' : 'NULL'}`);
+      logger.debug(`First vé cấu trúc (no QR): ${JSON.stringify({
         _id: firstTicket._id,
         ticketCode: firstTicket.ticketCode,
         customerId: firstTicket.customerId,
@@ -641,12 +640,12 @@ class TicketService {
         passengers: firstTicket.passengers?.length || 0,
         seatNumbers: firstTicket.seatNumbers,
         tripInfo: firstTicket.tripInfo ? 'exists' : 'missing'
-      }, null, 2));
+      }, null, 2)}`);
     }
 
     // Get total count
     const total = await Ticket.countDocuments(query);
-    logger.debug('Tổng khớptrtrêngg vé: ' + total);
+    logger.debug(`Tổng khớptrtrêngg vé: ${total}`);
 
     // Calculate stats
     const stats = {
@@ -680,11 +679,11 @@ class TicketService {
       stats,
     };
 
-    logger.debug('Đang trả về kết quả: ' + JSON.stringify({
+    logger.debug(`Đang trả về kết quả: ${JSON.stringify({
       ticketCount: tickets.length,
       pagination: result.pagination,
       stats: result.stats
-    }));
+    })}`);
 
     return result;
   }
@@ -696,7 +695,7 @@ class TicketService {
    * @returns {Promise<Array>} Tickets
    */
   static async getTripTickets(tripId, filters = {}) {
-    return await Ticket.findByTrip(tripId, filters);
+    return Ticket.findByTrip(tripId, filters);
   }
 
   /**
@@ -718,7 +717,7 @@ class TicketService {
         };
       }
 
-      const { ticketCode, bookingId } = qrVerification.data;
+      const { ticketCode } = qrVerification.data;
 
       // Find ticket
       const ticket = await Ticket.findOne({ ticketCode })
@@ -796,7 +795,7 @@ class TicketService {
         passengers: ticket.passengers,
       };
     } catch (error) {
-      logger.error(' QR xác mtrtrêngh lỗi: ' + error.message);
+      logger.error(`QR xác minh lỗi: ${error.message}`);
       return {
         success: false,
         error: error.message || 'Lỗi xác thực QR code',
@@ -865,22 +864,22 @@ class TicketService {
         subject: emailTemplate.subject,
         html: emailTemplate.html,
       });
-      logger.success('Hủy email đã gửi đến: ' + booking.contactInfo.email);
+      logger.success(`Hủy email đã gửi đến: ${booking.contactInfo.email}`);
     } catch (error) {
-      logger.error(' Không thể send hủy email: ' + error.message);
+      logger.error(`Không thể gửi hủy email: ${error.message}`);
       // Don't fail the cancellation if email fails
     }
 
     // Send SMS notification
     try {
       const message = `Ve xe nhanh: Ve ${ticket.ticketCode} da bi huy.
-${refundInfo.refundAmount > 0 ? `So tien hoan: ${refundInfo.refundAmount.toLocaleString('vi-VN')} VND` : 'Khong hoan tien'}
-${refundInfo.appliedRule}`;
+    ${refundInfo.refundAmount > 0 ? `So tien hoan: ${refundInfo.refundAmount.toLocaleString('vi-VN')} VND` : 'Khong hoan tien'}
+    ${refundInfo.appliedRule}`;
 
       await SMSService.sendSMS(booking.contactInfo.phone, message);
-      logger.success('Hủy SMS đã gửi đến: ' + booking.contactInfo.phone);
+      logger.success(`Hủy SMS đã gửi đến: ${booking.contactInfo.phone}`);
     } catch (error) {
-      logger.error(' Không thể send hủy SMS: ' + error.message);
+      logger.error(`Không thể gửi hủy SMS: ${error.message}`);
       // Don't fail the cancellation if SMS fails
     }
 
@@ -983,8 +982,7 @@ ${refundInfo.appliedRule}`;
     }, 0);
 
     // Apply same voucher if still valid (optional enhancement)
-    let newFinalPrice = newBasePrice;
-    let voucherDiscount = 0;
+    const newFinalPrice = newBasePrice;
 
     // Calculate price difference
     const priceDifference = newFinalPrice - oldPrice;
@@ -999,6 +997,7 @@ ${refundInfo.appliedRule}`;
     let PaymentService = null;
     const getPaymentService = () => {
       if (!PaymentService) {
+        // eslint-disable-next-line global-require
         PaymentService = require('./payment.service');
       }
       return PaymentService;
@@ -1024,6 +1023,7 @@ ${refundInfo.appliedRule}`;
       if (refundAmount > 0 && oldBooking.paymentStatus === 'paid') {
         try {
           const PaymentServiceClass = getPaymentService();
+          // eslint-disable-next-line global-require
           const payments = await require('../models/Payment').find({
             bookingId: oldBooking._id,
             status: 'completed',
@@ -1039,7 +1039,7 @@ ${refundInfo.appliedRule}`;
             });
           }
         } catch (error) {
-          logger.error('Hoàn tiền cho vé change thất bại: ' + error.message);
+          logger.error(`Hoàn tiền cho vé change thất bại: ${error.message}`);
           // Don't fail the change if refund fails
         }
       }
@@ -1121,11 +1121,11 @@ ${refundInfo.appliedRule}`;
           oldPrice: oldPrice.toLocaleString('vi-VN'),
           newPrice: newFinalPrice.toLocaleString('vi-VN'),
           priceDifference: priceDifference,
-          priceDifferenceText: priceDifference > 0
-            ? `+${priceDifference.toLocaleString('vi-VN')}`
-            : priceDifference < 0
-              ? `-${Math.abs(priceDifference).toLocaleString('vi-VN')}`
-              : '0',
+          priceDifferenceText: (() => {
+            if (priceDifference > 0) return `+${priceDifference.toLocaleString('vi-VN')}`;
+            if (priceDifference < 0) return `-${Math.abs(priceDifference).toLocaleString('vi-VN')}`;
+            return '0';
+          })(),
           changeReason: reason || 'Đổi lịch trình',
           changedAt: moment().tz('Asia/Ho_Chi_Minh').format('HH:mm, DD/MM/YYYY'),
         });
@@ -1136,9 +1136,9 @@ ${refundInfo.appliedRule}`;
           html: emailTemplate.html,
         });
 
-        logger.success('Vé change email đã gửi đến: ' + oldBooking.contactInfo.email);
+        logger.success(`Vé change email đã gửi đến: ${oldBooking.contactInfo.email}`);
       } catch (error) {
-        logger.error(' Không thể send vé change email: ' + error.message);
+        logger.error(`Không thể gửi vé change email: ${error.message}`);
       }
 
       // Send SMS notification
@@ -1150,9 +1150,9 @@ Gio di: ${moment(newTrip.departureTime).tz('Asia/Ho_Chi_Minh').format('HH:mm DD/
 ${priceDifference !== 0 ? `Chenh lech: ${priceDifference > 0 ? '+' : ''}${priceDifference.toLocaleString('vi-VN')} VND` : ''}`;
 
         await SMSService.sendSMS(oldBooking.contactInfo.phone, message);
-        logger.success('Vé change SMS đã gửi đến: ' + oldBooking.contactInfo.phone);
+        logger.success(`Vé change SMS đã gửi đến: ${oldBooking.contactInfo.phone}`);
       } catch (error) {
-        logger.error(' Không thể send vé change SMS: ' + error.message);
+        logger.error(`Không thể gửi vé change SMS: ${error.message}`);
       }
 
       return {
@@ -1209,7 +1209,7 @@ ${priceDifference !== 0 ? `Chenh lech: ${priceDifference > 0 ? '+' : ''}${priceD
     await ticket.save();
 
     // Resend notifications
-    return await this.sendTicketNotifications(ticketId);
+    return this.sendTicketNotifications(ticketId);
   }
 }
 

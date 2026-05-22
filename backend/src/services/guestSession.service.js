@@ -222,15 +222,20 @@ class GuestSessionService {
     let deletedCount = 0;
 
     do {
-      const result = await redis.scan(cursor, { MATCH: pattern, COUNT: 100 });
-      cursor = result.cursor;
-      const keys = result.keys;
+      const scanResult = await redis.scan(cursor, { MATCH: pattern, COUNT: 100 });
+      const { cursor: newCursor, keys } = scanResult;
+      cursor = newCursor;
 
-      for (const key of keys) {
-        const ttl = await redis.ttl(key);
-        if (ttl <= 0) {
-          await redis.del(key);
-          deletedCount++;
+      if (keys && keys.length) {
+        const ttls = await Promise.all(keys.map((k) => redis.ttl(k)));
+        const toDelete = [];
+        ttls.forEach((ttl, idx) => {
+          if (ttl <= 0) toDelete.push(keys[idx]);
+        });
+
+        if (toDelete.length) {
+          await Promise.all(toDelete.map((k) => redis.del(k)));
+          deletedCount += toDelete.length;
         }
       }
     } while (cursor !== '0');
@@ -252,9 +257,10 @@ class GuestSessionService {
     let count = 0;
 
     do {
-      const result = await redis.scan(cursor, { MATCH: pattern, COUNT: 100 });
-      cursor = result.cursor;
-      count += result.keys.length;
+      const scanResult = await redis.scan(cursor, { MATCH: pattern, COUNT: 100 });
+      const { cursor: newCursor, keys } = scanResult;
+      cursor = newCursor;
+      count += (keys && keys.length) || 0;
     } while (cursor !== '0');
 
     return count;

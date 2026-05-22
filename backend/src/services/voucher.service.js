@@ -1,8 +1,9 @@
+const mongoose = require('mongoose');
 const Voucher = require('../models/Voucher');
 const Booking = require('../models/Booking');
 const Trip = require('../models/Trip');
-const mongoose = require('mongoose');
-const logger = require('../utils/logger');
+
+// logger not used in this service
 
 /**
  * Voucher Service
@@ -210,7 +211,7 @@ class VoucherService {
    * @returns {Promise<Array>} Active vouchers
    */
   static async getActive(filters = {}) {
-    return await Voucher.findActive(filters);
+    return Voucher.findActive(filters);
   }
 
   /**
@@ -219,7 +220,7 @@ class VoucherService {
    * @returns {Promise<Array>} Vouchers
    */
   static async getByOperator(operatorId) {
-    return await Voucher.findByOperator(operatorId);
+    return Voucher.findByOperator(operatorId);
   }
 
   /**
@@ -235,7 +236,7 @@ class VoucherService {
     }
 
     // Don't allow changing code or usage count manually
-    const { code, currentUsageCount, ...allowedUpdates } = updateData;
+    const { code: _code, currentUsageCount: _currentUsageCount, ...allowedUpdates } = updateData;
 
     Object.assign(voucher, allowedUpdates);
     await voucher.save();
@@ -377,7 +378,7 @@ class VoucherService {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = prefix;
 
-    for (let i = 0; i < length; i++) {
+    for (let i = 0; i < length; i += 1) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
 

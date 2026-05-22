@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const smsService = require('./sms.service');
+const Booking = require('../models/Booking');
 const logger = require('../utils/logger');
 
 /**
@@ -144,42 +145,41 @@ class NotificationService {
         newStatus
       );
 
-      // Send notifications to all passengers
-      const results = {
-        total: bookings.length,
-        emailSent: 0,
-        emailFailed: 0,
-        smsSent: 0,
-        smsFailed: 0,
-      };
-
-      for (const booking of bookings) {
+      // Send notifications to all passengers in parallel (collect results)
+      const sendPromises = bookings.map(async (booking) => {
         const email = booking.contactInfo?.email;
         const phone = booking.contactInfo?.phone;
 
-        // Send email
+        let emailSent = 0;
+        let emailFailed = 0;
+        let smsSent = 0;
+        let smsFailed = 0;
+
         if (email) {
           const emailResult = await this.sendEmail(email, emailSubject, emailHtml);
-          if (emailResult.success && !emailResult.skipped) {
-            results.emailSent++;
-          } else if (!emailResult.skipped) {
-            results.emailFailed++;
-          }
+          if (emailResult.success && !emailResult.skipped) emailSent = 1;
+          else if (!emailResult.skipped) emailFailed = 1;
         }
 
-        // Send SMS
         if (phone) {
           const smsResult = await this.sendSMS(phone, smsMessage);
-          if (smsResult.success && !smsResult.skipped) {
-            results.smsSent++;
-          } else if (!smsResult.skipped) {
-            results.smsFailed++;
-          }
+          if (smsResult.success && !smsResult.skipped) smsSent = 1;
+          else if (!smsResult.skipped) smsFailed = 1;
         }
 
-        // Small delay to avoid rate limiting
-        await this.delay(100);
-      }
+        return { emailSent, emailFailed, smsSent, smsFailed };
+      });
+
+      const settled = await Promise.all(sendPromises);
+
+      const results = settled.reduce((acc, r) => {
+        acc.total += 1;
+        acc.emailSent += r.emailSent;
+        acc.emailFailed += r.emailFailed;
+        acc.smsSent += r.smsSent;
+        acc.smsFailed += r.smsFailed;
+        return acc;
+      }, { total: 0, emailSent: 0, emailFailed: 0, smsSent: 0, smsFailed: 0 });
 
       logger.info('Chuyến trạng thái change thông báo đã gửi:', results);
       return {

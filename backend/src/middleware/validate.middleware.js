@@ -26,12 +26,7 @@ const handleValidationErrors = (req, res, next) => {
  * Validation rules cho đăng ký
  */
 const buildAccountValidationRules = () => [
-  body('email')
-    .trim()
-    .isEmail()
-    .withMessage('Email không hợp lệ')
-    .normalizeEmail()
-    .toLowerCase(),
+  body('email').trim().isEmail().withMessage('Email không hợp lệ').normalizeEmail().toLowerCase(),
   body('phone')
     .trim()
     .matches(/^[0-9]{10,11}$/)
@@ -49,29 +44,19 @@ const buildAccountValidationRules = () => [
     .withMessage('Họ tên phải từ 2-100 ký tự'),
 ];
 
-const validateRegister = [
-  ...buildAccountValidationRules(),
-  handleValidationErrors,
-];
+const validateRegister = [...buildAccountValidationRules(), handleValidationErrors];
 
 /**
  * Validation rules cho tạo tài khoản admin
  */
-const validateCreateAdmin = [
-  ...buildAccountValidationRules(),
-  handleValidationErrors,
-];
+const validateCreateAdmin = [...buildAccountValidationRules(), handleValidationErrors];
 
 /**
  * Validation rules cho bootstrap admin đầu tiên
  */
 const validateBootstrapAdmin = [
   ...buildAccountValidationRules(),
-  body('bootstrapSecret')
-    .optional()
-    .trim()
-    .isString()
-    .withMessage('Bootstrap secret không hợp lệ'),
+  body('bootstrapSecret').optional().trim().isString().withMessage('Bootstrap secret không hợp lệ'),
   handleValidationErrors,
 ];
 
@@ -93,7 +78,7 @@ const validateLogin = [
 
           // For Gmail and Googlemail, remove dots from local part
           if (domain === 'gmail.com' || domain === 'googlemail.com') {
-            return localPart.replace(/\./g, '') + '@' + domain;
+            return `${localPart.replace(/\./g, '')}@${domain}`;
           }
 
           // For other domains, just lowercase
@@ -118,12 +103,7 @@ const validateRefreshToken = [
  * Validation rules cho forgot password
  */
 const validateForgotPassword = [
-  body('email')
-    .trim()
-    .isEmail()
-    .withMessage('Email không hợp lệ')
-    .normalizeEmail()
-    .toLowerCase(),
+  body('email').trim().isEmail().withMessage('Email không hợp lệ').normalizeEmail().toLowerCase(),
   handleValidationErrors,
 ];
 
@@ -168,11 +148,13 @@ const validateUpdateProfile = [
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Họ tên phải từ 2-100 ký tự'),
-  body('dateOfBirth').optional().isISO8601().withMessage('Ngày sinh không hợp lệ'),
-  body('gender')
+  body('phone')
     .optional()
-    .isIn(['male', 'female', 'other'])
-    .withMessage('Giới tính không hợp lệ'),
+    .trim()
+    .matches(/^[0-9]{10,11}$/)
+    .withMessage('Số điện thoại phải có 10-11 chữ số'),
+  body('dateOfBirth').optional().isISO8601().withMessage('Ngày sinh không hợp lệ'),
+  body('gender').optional().isIn(['male', 'female', 'other']).withMessage('Giới tính không hợp lệ'),
   handleValidationErrors,
 ];
 

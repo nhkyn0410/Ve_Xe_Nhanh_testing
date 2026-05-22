@@ -108,7 +108,7 @@ class OTPService {
     // In production, integrate with email service (SendGrid, AWS SES, etc.)
     // For now, just log the OTP
     logger.info(`Đang gửi OTP đến ${email}:`);
-    logger.info(`OTP Code: ${OTP}`);
+    logger.info(`OTP Code: ${otp}`);
     logger.info(`Purpose: ${purpose}`);
     logger.info(`---`);
 
@@ -154,8 +154,8 @@ class OTPService {
   static async sendOTPSMS(phone, otp, purpose = 'guest_booking') {
     // In production, integrate with SMS service (Twilio, VNPT SMS, etc.)
     // For now, just log the OTP
-    logger.info(`Đang gửi OTP đến ${phtrêne}:`);
-    logger.info(`OTP Code: ${OTP}`);
+    logger.info(`Đang gửi OTP đến ${phone}:`);
+    logger.info(`OTP Code: ${otp}`);
     logger.info(`Purpose: ${purpose}`);
     logger.info(`---`);
 
@@ -205,7 +205,7 @@ class OTPService {
     const redis = getRedisClient();
     const requestCount = await redis.get(rateLimitKey);
 
-    if (requestCount && parseInt(requestCount) >= 3) {
+    if (requestCount && parseInt(requestCount, 10) >= 3) {
       throw new Error('Bạn đã yêu cầu OTP quá nhiều lần. Vui lòng thử lại sau 15 phút');
     }
 

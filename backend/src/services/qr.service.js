@@ -69,7 +69,7 @@ class QRService {
     try {
       logger.info('Đang cố gắng giải mã dữ liệu QR:', {
         length: encryptedText.length,
-        preview: encryptedText.substring(0, 50) + '...',
+        preview: `${encryptedText.substring(0, 50)}...`,
       });
 
       // Trim whitespace that might come from scanning
@@ -109,7 +109,7 @@ class QRService {
     } catch (error) {
       logger.error('Lỗi giải mã:', error);
       logger.error('Văn bản QR không thành công:', encryptedText);
-      throw new Error('QR code không hợp lệ hoặc bị hỏng: ' + error.message);
+      throw new Error(`QR code không hợp lệ hoặc bị hỏng: ${error.message}`);
     }
   }
 

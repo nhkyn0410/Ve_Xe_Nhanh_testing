@@ -50,7 +50,7 @@ class WebSocketService {
             logger.success(`Socket ${socket.id} được xác thực là người dùng ${socket.userId}`);
           }
         } catch (error) {
-          logger.error('Socket lỗi xác thực: ' + error.message);
+          logger.error(`Socket lỗi xác thực: ${error.message}`);
           socket.authenticated = false;
         }
       });
@@ -87,7 +87,7 @@ class WebSocketService {
             timestamp: new Date(),
           });
         } catch (error) {
-          logger.error('Lỗi khi tham gia chuyến đi: ' + error.message);
+          logger.error(`Lỗi khi tham gia chuyến đi: ${error.message}`);
           socket.emit('error', { message: error.message });
         }
       });
@@ -111,7 +111,7 @@ class WebSocketService {
             logger.info(`Socket ${socket.id} chuyến đi trái ${tripId}`);
           }
         } catch (error) {
-          logger.error('Lỗi rời chuyến đi: ' + error.message);
+          logger.error(`Lỗi rời chuyến đi: ${error.message}`);
         }
       });
 
@@ -134,7 +134,7 @@ class WebSocketService {
             timestamp: new Date(),
           });
         } catch (error) {
-          logger.error('Lỗi yêu cầu trạng thái chỗ ngồi:' + error.message);
+          logger.error(`Lỗi yêu cầu trạng thái chỗ ngồi: ${error.message}`);
           socket.emit('error', { message: error.message });
         }
       });
@@ -156,7 +156,7 @@ class WebSocketService {
 
       // Handle errors
       socket.on('error', (error) => {
-        logger.error('Socket lỗi: ' + error.message);
+        logger.error(`Socket lỗi: ${error.message}`);
       });
     });
   }
@@ -185,7 +185,7 @@ class WebSocketService {
 
       logger.info(`Cập nhật chỗ ngồi được phát sóng cho chuyến đi ${tripId} to ${this.connectedClients.get(tripId)?.size || 0} khách hàng`);
     } catch (error) {
-      logger.error('Lỗi phát sóng cập nhật chỗ ngồi: ' + error.message);
+      logger.error(`Lỗi phát sóng cập nhật chỗ ngồi: ${error.message}`);
     }
   }
 
@@ -212,7 +212,7 @@ class WebSocketService {
       // Also send full seat status
       await this.broadcastSeatUpdate(tripId);
     } catch (error) {
-      logger.error('Lỗi phát hành động về chỗ ngồi: ' + error.message);
+      logger.error(`Lỗi phát hành động về chỗ ngồi: ${error.message}`);
     }
   }
 

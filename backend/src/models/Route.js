@@ -157,7 +157,7 @@ const RouteSchema = new mongoose.Schema(
       type: [PointSchema],
       default: [],
       validate: {
-        validator: function (points) {
+        validator(points) {
           return points.length <= 20;
         },
         message: 'Không được có quá 20 điểm đón',
@@ -167,7 +167,7 @@ const RouteSchema = new mongoose.Schema(
       type: [PointSchema],
       default: [],
       validate: {
-        validator: function (points) {
+        validator(points) {
           return points.length <= 20;
         },
         message: 'Không được có quá 20 điểm trả',
@@ -179,7 +179,7 @@ const RouteSchema = new mongoose.Schema(
       type: [StopSchema],
       default: [],
       validate: {
-        validator: function (stops) {
+        validator(stops) {
           return stops.length <= 15;
         },
         message: 'Không được có quá 15 điểm dừng',

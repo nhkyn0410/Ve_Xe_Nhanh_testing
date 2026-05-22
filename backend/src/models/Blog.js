@@ -83,9 +83,10 @@ const blogSchema = new mongoose.Schema(
     timestamps: true,
     toJSON: {
       virtuals: true,
-      transform: function (doc, ret) {
-        delete ret.__v;
-        return ret;
+      transform(_doc, ret) {
+        const sanitizedRet = { ...ret };
+        Reflect.deleteProperty(sanitizedRet, '__v');
+        return sanitizedRet;
       },
     },
     toObject: { virtuals: true },

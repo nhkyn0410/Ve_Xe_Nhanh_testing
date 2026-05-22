@@ -87,7 +87,9 @@ exports.uploadAvatar = async (req, res, next) => {
     }
 
     // Hỗ trợ cả file upload và base64
-    const file = req.file ? req.file.path : req.body.avatar;
+    const file = req.file
+      ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`
+      : req.body.avatar;
 
     const user = await UserService.uploadAvatar(userId, file);
 

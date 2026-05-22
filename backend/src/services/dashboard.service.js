@@ -3,12 +3,13 @@
  * Aggregates data for operator dashboard statistics
  */
 
+const dayjs = require('dayjs');
+const logger = require('../utils/logger');
+
 const Booking = require('../models/Booking');
 const Trip = require('../models/Trip');
 const Ticket = require('../models/Ticket');
 const Payment = require('../models/Payment');
-const dayjs = require('dayjs');
-const logger = require('../utils/logger');
 
 class DashboardService {
   /**
@@ -61,7 +62,8 @@ class DashboardService {
    */
   static getDateRange(period, startDate, endDate) {
     const now = dayjs();
-    let start, end;
+    let start;
+    let end;
 
     if (startDate && endDate) {
       start = dayjs(startDate);
@@ -351,7 +353,7 @@ class DashboardService {
       period
     });
 
-    let groupBy, dateFormat;
+    let groupBy;
 
     switch (period) {
       case 'day':
@@ -365,12 +367,15 @@ class DashboardService {
         break;
       case 'year':
         groupBy = { $month: '$createdAt' };
-        dateFormat = 'Tháng %m';
         break;
       default:
         groupBy = { $dayOfMonth: '$createdAt' };
-        dateFormat = '%d/%m';
     }
+    // Determine limit separately to avoid nested ternary
+    let limitCount = 12;
+    if (period === 'day') limitCount = 24;
+    else if (period === 'week') limitCount = 7;
+    else if (period === 'month') limitCount = 31;
 
     // Get booking trends
     const bookingTrends = await Booking.aggregate([
@@ -391,7 +396,7 @@ class DashboardService {
         $sort: { _id: 1 },
       },
       {
-        $limit: period === 'day' ? 24 : period === 'week' ? 7 : period === 'month' ? 31 : 12,
+        $limit: limitCount,
       },
     ]);
 

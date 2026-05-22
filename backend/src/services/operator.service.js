@@ -1,6 +1,6 @@
 const BusOperator = require('../models/BusOperator');
 const AuthService = require('./auth.service');
-const logger = require('../utils/logger');
+
 
 /**
  * Operator Service

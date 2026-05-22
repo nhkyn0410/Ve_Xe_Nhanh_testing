@@ -33,7 +33,7 @@ const SeatLayoutSchema = new mongoose.Schema(
       type: [[String]],
       required: [true, 'Sơ đồ ghế là bắt buộc'],
       validate: {
-        validator: function (layout) {
+        validator(layout) {
           // Validate layout is a 2D array
           if (!Array.isArray(layout) || layout.length === 0) {
             return false;
@@ -97,7 +97,7 @@ const BusSchema = new mongoose.Schema(
       type: [String],
       default: [],
       validate: {
-        validator: function (amenities) {
+        validator(amenities) {
           const validAmenities = [
             'wifi',
             'ac',
@@ -150,25 +150,19 @@ BusSchema.virtual('isAvailable').get(function () {
   return this.status === 'active';
 });
 
+const isActualSeat = (seat) =>
+  Boolean(seat) &&
+  seat !== 'DRIVER' &&
+  seat !== 'FLOOR_2' &&
+  seat !== 'BUS' &&
+  seat.toUpperCase() !== 'AISLE' &&
+  !seat.toLowerCase().includes('aisle');
+
 // Pre-save middleware to calculate total seats from layout
 BusSchema.pre('save', function (next) {
   if (this.seatLayout && this.seatLayout.layout) {
     // Count only actual seats (excluding driver, aisle, floor markers, empty)
-    let totalSeats = 0;
-    for (const row of this.seatLayout.layout) {
-      for (const seat of row) {
-        // Count only actual seats (not empty, not aisle, not driver, not floor marker)
-        if (seat &&
-          seat !== '' &&
-          seat !== 'DRIVER' &&
-          seat !== 'FLOOR_2' &&
-          seat !== 'BUS' &&
-          seat.toUpperCase() !== 'AISLE' &&
-          !seat.toLowerCase().includes('aisle')) {
-          totalSeats++;
-        }
-      }
-    }
+    const totalSeats = this.seatLayout.layout.flat().filter(isActualSeat).length;
     this.seatLayout.totalSeats = totalSeats;
     logger.info('MIDDLEWARE TRƯỚC KHI LƯU - Tổng số ghế được tính:', totalSeats);
   }

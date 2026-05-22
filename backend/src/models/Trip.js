@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
+const NotificationService = require('../services/notification.service');
 
 /**
  * Trip Schema
@@ -71,7 +72,7 @@ const TripSchema = new mongoose.Schema(
       ref: 'Employee',
       required: [true, 'Tài xế là bắt buộc'],
       validate: {
-        validator: async function (v) {
+        validator: async function validator(v) {
           if (!v) return false;
           const Employee = mongoose.model('Employee');
           const driver = await Employee.findById(v);
@@ -86,7 +87,7 @@ const TripSchema = new mongoose.Schema(
       ref: 'Employee',
       required: [true, 'Quản lý chuyến là bắt buộc'],
       validate: {
-        validator: async function (v) {
+        validator: async function validator(v) {
           if (!v) return false;
           const Employee = mongoose.model('Employee');
           const manager = await Employee.findById(v);
@@ -102,7 +103,7 @@ const TripSchema = new mongoose.Schema(
       required: [true, 'Giờ khởi hành là bắt buộc'],
       index: true,
       validate: {
-        validator: function (v) {
+        validator(v) {
           // Departure must be in the future (for new trips)
           if (this.isNew) {
             return v > new Date();
@@ -117,7 +118,7 @@ const TripSchema = new mongoose.Schema(
       type: Date,
       required: [true, 'Giờ đến là bắt buộc'],
       validate: {
-        validator: function (v) {
+        validator(v) {
           return v > this.departureTime;
         },
         message: 'Giờ đến phải sau giờ khởi hành',
@@ -296,7 +297,7 @@ const TripSchema = new mongoose.Schema(
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  },
+  }
 );
 
 /**
@@ -340,7 +341,9 @@ TripSchema.pre('save', async function (next) {
         this.availableSeats = this.totalSeats;
       } else {
         // Fallback: set default values if bus seatLayout is not available
-        throw new Error('Bus không có thông tin sơ đồ ghế (seatLayout). Vui lòng cập nhật thông tin xe trước.');
+        throw new Error(
+          'Bus không có thông tin sơ đồ ghế (seatLayout). Vui lòng cập nhật thông tin xe trước.'
+        );
       }
     }
 
@@ -470,9 +473,7 @@ TripSchema.methods.updateStatus = async function (newStatus, options = {}) {
   };
 
   if (!validTransitions[oldStatus].includes(newStatus)) {
-    throw new Error(
-      `Không thể chuyển từ trạng thái "${oldStatus}" sang "${newStatus}"`
-    );
+    throw new Error(`Không thể chuyển từ trạng thái "${oldStatus}" sang "${newStatus}"`);
   }
 
   // Update status
@@ -498,8 +499,6 @@ TripSchema.methods.updateStatus = async function (newStatus, options = {}) {
 
   // Notify passengers about status change (async, don't wait)
   try {
-    const NotificationService = require('../services/notification.service');
-
     // Populate route for notification
     await this.populate('routeId');
 
@@ -540,7 +539,14 @@ TripSchema.methods.updateJourneyStatus = async function (data) {
   });
 
   // Validate status
-  const validJourneyStatuses = ['preparing', 'checking_tickets', 'in_transit', 'at_stop', 'completed', 'cancelled'];
+  const validJourneyStatuses = [
+    'preparing',
+    'checking_tickets',
+    'in_transit',
+    'at_stop',
+    'completed',
+    'cancelled',
+  ];
   if (!validJourneyStatuses.includes(status)) {
     logger.error('Trạng thái hành trình không hợp lệ:', status);
     throw new Error(`Trạng thái hành trình không hợp lệ: ${status}`);
@@ -570,7 +576,7 @@ TripSchema.methods.updateJourneyStatus = async function (data) {
 
   // Status-specific logic
   switch (status) {
-    case 'at_stop':
+    case 'at_stop': {
       // REQUIRED: stopIndex must be provided when at_stop
       if (stopIndex === undefined || stopIndex === null) {
         logger.error(' Mất stopIndex for at_stop status');
@@ -610,7 +616,7 @@ TripSchema.methods.updateJourneyStatus = async function (data) {
         });
         throw new Error(
           `Không thể bỏ qua điểm dừng! ` +
-          `Vui lòng dừng tại điểm dừng ${expectedNextStop + 1} trước khi đến điểm dừng ${requestedStopIndex + 1}`
+            `Vui lòng dừng tại điểm dừng ${expectedNextStop + 1} trước khi đến điểm dừng ${requestedStopIndex + 1}`
         );
       }
 
@@ -620,9 +626,15 @@ TripSchema.methods.updateJourneyStatus = async function (data) {
       if (!this.journey.stoppedAt.includes(newStopIndex)) {
         this.journey.stoppedAt.push(newStopIndex);
         this.journey.stoppedAt.sort((a, b) => a - b); // Keep sorted
-        logger.info('Điểm dừng được đánh dấu là đã ghé thăm:', newStopIndex, 'Total visited:', this.journey.stoppedAt);
+        logger.info(
+          'Điểm dừng được đánh dấu là đã ghé thăm:',
+          newStopIndex,
+          'Total visited:',
+          this.journey.stoppedAt
+        );
       }
       break;
+    }
 
     case 'in_transit':
       if (oldStatus === 'at_stop') {
@@ -632,11 +644,12 @@ TripSchema.methods.updateJourneyStatus = async function (data) {
       }
       break;
 
-    case 'completed':
+    case 'completed': {
       const route = await this.populate('routeId');
       const totalStops = route?.routeId?.stops?.length || 0;
       newStopIndex = totalStops - 1;
       break;
+    }
 
     case 'preparing':
     case 'checking_tickets':
@@ -660,10 +673,8 @@ TripSchema.methods.updateJourneyStatus = async function (data) {
     updatedBy,
   };
 
-
   this.journey.currentStatus = status;
   this.journey.currentStopIndex = newStopIndex;
-
 
   if (status === 'in_transit' && !this.journey.actualDepartureTime) {
     this.journey.actualDepartureTime = new Date();
@@ -762,7 +773,10 @@ TripSchema.methods.calculateDynamicPrice = function (bookingDate = new Date()) {
   }
 
   // 2. Early bird discount (negative premium)
-  if (config.earlyBirdDiscount?.enabled && daysUntilDeparture >= config.earlyBirdDiscount.daysBeforeDeparture) {
+  if (
+    config.earlyBirdDiscount?.enabled &&
+    daysUntilDeparture >= config.earlyBirdDiscount.daysBeforeDeparture
+  ) {
     const discountAmount = this.basePrice * (config.earlyBirdDiscount.discountPercentage / 100);
     priceFactors.earlyBirdDiscount = -discountAmount;
     price -= discountAmount;
@@ -788,7 +802,7 @@ TripSchema.methods.calculateDynamicPrice = function (bookingDate = new Date()) {
 
   // Apply manual discount if any
   if (this.discount > 0) {
-    price = price * (1 - this.discount / 100);
+    price *= 1 - this.discount / 100;
   }
 
   // Ensure price is not negative

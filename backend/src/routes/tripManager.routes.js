@@ -1,8 +1,10 @@
 const express = require('express');
+
 const router = express.Router();
+const { body, param } = require('express-validator');
 const TripManagerController = require('../controllers/tripManager.controller');
 const TicketController = require('../controllers/ticket.controller');
-const { body, param } = require('express-validator');
+
 const { protectTripManager, authorizeTripManager } = require('../middleware/tripManagerAuth.middleware');
 
 /**

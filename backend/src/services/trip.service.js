@@ -1,8 +1,9 @@
+const { v4: uuidv4 } = require('uuid');
 const Trip = require('../models/Trip');
 const Route = require('../models/Route');
 const Bus = require('../models/Bus');
 const Employee = require('../models/Employee');
-const { v4: uuidv4 } = require('uuid');
+
 const logger = require('../utils/logger');
 
 /**
@@ -42,7 +43,7 @@ class TripService {
       ...tripData,
     });
 
-    return await Trip.findById(trip._id)
+    return Trip.findById(trip._id)
       .populate('routeId', 'routeName routeCode origin destination')
       .populate('busId', 'busNumber busType seatLayout')
       .populate('driverId', 'fullName employeeCode')
@@ -83,11 +84,11 @@ class TripService {
         // Create departure and arrival times for this date
         const [departureHour, departureMinute] = timeOfDay.departure.split(':');
         const departureTime = new Date(currentDate);
-        departureTime.setHours(parseInt(departureHour), parseInt(departureMinute), 0, 0);
+        departureTime.setHours(parseInt(departureHour, 10), parseInt(departureMinute, 10), 0, 0);
 
         const [arrivalHour, arrivalMinute] = timeOfDay.arrival.split(':');
         const arrivalTime = new Date(currentDate);
-        arrivalTime.setHours(parseInt(arrivalHour), parseInt(arrivalMinute), 0, 0);
+        arrivalTime.setHours(parseInt(arrivalHour, 10), parseInt(arrivalMinute, 10), 0, 0);
 
         // If arrival is next day
         if (arrivalTime <= departureTime) {
@@ -503,7 +504,7 @@ class TripService {
       sortOrder = 'asc',
     } = searchCriteria;
 
-    logger.debug('Search tiêu chí: ' + JSON.stringify({ fromCity, toCity, date, passengers }));
+    logger.debug(`Search tiêu chí: ${JSON.stringify({ fromCity, toCity, date, passengers })}`);
 
     // Build query
     const query = {
@@ -523,7 +524,7 @@ class TripService {
         $gte: startOfDay,
         $lte: endOfDay,
       };
-      logger.debug('Ngày phạm vi: ' + JSON.stringify({ startOfDay, endOfDay }));
+      logger.debug(`Ngày phạm vi: ${JSON.stringify({ startOfDay, endOfDay })}`);
     } else {
       // If no date specified (browse all mode), show only future trips
       const now = new Date();
@@ -531,7 +532,7 @@ class TripService {
       query.departureTime = {
         $gte: now,
       };
-      logger.debug('Browse chế độ:  ' + JSON.stringify({ from: now }));
+      logger.debug(`Browse chế độ: ${JSON.stringify({ from: now })}`);
     }
 
     // Price range filter
@@ -571,11 +572,11 @@ class TripService {
 
     logger.debug(`Tìm thấy ${trips.length} chuyến từ cơ sở dữ liệu`);
     if (trips.length > 0) {
-      logger.debug('Mẫu chuyến tuyến: ' + JSON.stringify(trips.slice(0, 2).map(t => ({
+      logger.debug(`Mẫu chuyến tuyến: ${JSON.stringify(trips.slice(0, 2).map(t => ({
         from: t.routeId?.origin?.city,
         to: t.routeId?.destination?.city,
         departure: t.departureTime
-      }))));
+      })))}`);
     }
 
     // Filter by cities (after populate)

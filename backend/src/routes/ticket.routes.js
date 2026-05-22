@@ -1,7 +1,9 @@
 const express = require('express');
+
 const router = express.Router();
-const TicketController = require('../controllers/ticket.controller');
 const { body, param } = require('express-validator');
+const TicketController = require('../controllers/ticket.controller');
+
 
 // Note: auth middleware should be imported from your middleware folder
 // const { protect, authorize } = require('../middleware/auth.middleware');

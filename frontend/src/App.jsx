@@ -32,6 +32,7 @@ import TripsPage from './pages/TripsPage';
 import TripDetailPage from './pages/TripDetailPage';
 import PassengerInfoPage from './pages/PassengerInfoPage';
 import BookingConfirmationPage from './pages/BookingConfirmationPage';
+import ProfilePage from './pages/customer/ProfilePage';
 import MyTicketsPage from './pages/customer/MyTicketsPage';
 import MyReviewsPage from './pages/MyReviewsPage';
 import MyComplaintsPage from './pages/MyComplaintsPage';
@@ -125,6 +126,24 @@ function App() {
         <Route path="/my-tickets" element={<MyTicketsPage />} />
         <Route path="/tickets/lookup" element={<GuestTicketLookupPage />} />
         <Route path="/tickets/cancel" element={<CancelTicketPage />} />
+
+        {/* Customer Profile */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute allowedRoles={['customer']}>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Customer Reviews */}
         <Route

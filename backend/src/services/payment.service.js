@@ -1,18 +1,28 @@
+const moment = require('moment');
+const logger = require('../utils/logger');
+
 const Payment = require('../models/Payment');
 const Booking = require('../models/Booking');
 const Trip = require('../models/Trip');
 const vnpayService = require('./vnpay.service');
 const SeatLockService = require('./seatLock.service');
-const moment = require('moment');
-const logger = require('../utils/logger');
 
 // Lazy-load TicketService to avoid circular dependency
 let TicketService = null;
 const getTicketService = () => {
   if (!TicketService) {
+    // eslint-disable-next-line global-require
     TicketService = require('./ticket.service');
   }
   return TicketService;
+};
+let VoucherService = null;
+const getVoucherService = () => {
+  if (!VoucherService) {
+    // eslint-disable-next-line global-require
+    VoucherService = require('./voucher.service');
+  }
+  return VoucherService;
 };
 
 /**
@@ -129,7 +139,8 @@ class PaymentService {
 
       // Add seats to trip's booked seats
       const seatNumbers = booking.seats.map((s) => s.seatNumber);
-      for (const seat of booking.seats) {
+      for (let i = 0; i < booking.seats.length; i += 1) {
+        const seat = booking.seats[i];
         trip.bookedSeats.push({
           seatNumber: seat.seatNumber,
           bookingId: booking._id,
@@ -142,8 +153,8 @@ class PaymentService {
       // Apply voucher if present
       if (booking.voucherId) {
         try {
-          const VoucherService = require('./voucher.service');
-          await VoucherService.applyToBooking(booking.voucherId);
+          const VoucherServiceClass = getVoucherService();
+          await VoucherServiceClass.applyToBooking(booking.voucherId);
         } catch (error) {
           logger.error('Không thể áp dụng voucher:', error.message);
         }
@@ -197,7 +208,7 @@ class PaymentService {
    * @param {string} ipAddress - Client IP address
    * @returns {Object} Processing result
    */
-  static async processVNPayCallback(vnpParams, ipAddress) {
+  static async processVNPayCallback(vnpParams) {
     logger.info('VNPay callback đã nhận:', vnpParams);
 
     // Process callback with VNPay service
@@ -290,7 +301,8 @@ class PaymentService {
             // Add seats to trip's booked seats
             const seatNumbers = booking.seats.map((s) => s.seatNumber);
 
-            for (const seat of booking.seats) {
+            for (let i = 0; i < booking.seats.length; i += 1) {
+              const seat = booking.seats[i];
               // Only add if not already booked
               const alreadyBooked = trip.bookedSeats.some(
                 (bookedSeat) => bookedSeat.seatNumber === seat.seatNumber
@@ -545,48 +557,40 @@ class PaymentService {
       };
     }
 
-    const results = [];
-
-    for (const payment of payments) {
+    const results = await Promise.all(payments.map(async (payment) => {
       try {
-        // Calculate refund amount
         let refundAmount;
         if (specificRefundAmount !== null && specificRefundAmount >= 0) {
-          // Use specific refund amount from cancellation policy
           refundAmount = Math.min(specificRefundAmount, payment.amount - (payment.refundAmount || 0));
         } else {
-          // Full refund (legacy behavior)
           refundAmount = payment.amount - (payment.refundAmount || 0);
         }
 
         if (refundAmount > 0) {
-          const result = await this.processRefund({
+          return this.processRefund({
             paymentId: payment._id,
             amount: refundAmount,
             reason: `Hoàn tiền tự động do hủy booking: ${reason}`,
             ipAddress,
             user: 'system',
           });
-
-          results.push(result);
-        } else if (refundAmount === 0) {
-          // No refund according to policy
-          results.push({
-            success: true,
-            paymentId: payment._id,
-            message: 'Không hoàn tiền theo chính sách hủy vé',
-            refundAmount: 0,
-          });
         }
+
+        return {
+          success: true,
+          paymentId: payment._id,
+          message: 'Không hoàn tiền theo chính sách hủy vé',
+          refundAmount: 0,
+        };
       } catch (error) {
         logger.error('Auto-refund failed for payment:', payment._id, error.message);
-        results.push({
+        return {
           success: false,
           paymentId: payment._id,
           error: error.message,
-        });
+        };
       }
-    }
+    }));
 
     return {
       success: results.some((r) => r.success),
@@ -601,9 +605,7 @@ class PaymentService {
   static async handleExpiredPayments() {
     const expiredPayments = await Payment.findExpiredPending();
 
-    const results = [];
-
-    for (const payment of expiredPayments) {
+    const results = await Promise.all(expiredPayments.map(async (payment) => {
       try {
         payment.markAsFailed('Thanh toán hết hạn', 'EXPIRED');
         await payment.save();
@@ -615,19 +617,12 @@ class PaymentService {
           await booking.save();
         }
 
-        results.push({
-          success: true,
-          paymentId: payment._id,
-        });
+        return { success: true, paymentId: payment._id };
       } catch (error) {
         logger.error('Failed to handle expired payment:', payment._id, error.message);
-        results.push({
-          success: false,
-          paymentId: payment._id,
-          error: error.message,
-        });
+        return { success: false, paymentId: payment._id, error: error.message };
       }
-    }
+    }));
 
     return {
       total: expiredPayments.length,

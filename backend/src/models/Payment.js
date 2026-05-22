@@ -65,7 +65,15 @@ const PaymentSchema = new mongoose.Schema(
     // Payment status
     status: {
       type: String,
-      enum: ['pending', 'processing', 'completed', 'failed', 'cancelled', 'refunded', 'partial_refund'],
+      enum: [
+        'pending',
+        'processing',
+        'completed',
+        'failed',
+        'cancelled',
+        'refunded',
+        'partial_refund',
+      ],
       default: 'pending',
       index: true,
     },
@@ -304,16 +312,19 @@ PaymentSchema.methods.setPaymentUrl = function (url, expiryMinutes = 15) {
 PaymentSchema.statics.generatePaymentCode = async function () {
   const date = new Date();
   const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-  let code;
-  let exists = true;
-
-  while (exists) {
+  const generateUniqueCode = async () => {
     const random = Math.floor(10000000 + Math.random() * 90000000);
-    code = `PAY${dateStr}${random}`;
-    exists = await this.exists({ paymentCode: code });
-  }
+    const code = `PAY${dateStr}${random}`;
+    const exists = await this.exists({ paymentCode: code });
 
-  return code;
+    if (exists) {
+      return generateUniqueCode();
+    }
+
+    return code;
+  };
+
+  return generateUniqueCode();
 };
 
 /**

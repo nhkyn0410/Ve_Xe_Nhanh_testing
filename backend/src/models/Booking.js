@@ -263,17 +263,20 @@ BookingSchema.virtual('canBeCancelled').get(function () {
 BookingSchema.statics.generateBookingCode = async function () {
   const date = new Date();
   const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-  let code;
-  let exists = true;
 
-  // Keep generating until we get a unique code
-  while (exists) {
+  const generateUniqueCode = async () => {
     const random = Math.floor(100000 + Math.random() * 900000);
-    code = `BK${dateStr}${random}`;
-    exists = await this.exists({ bookingCode: code });
-  }
+    const code = `BK${dateStr}${random}`;
+    const exists = await this.exists({ bookingCode: code });
 
-  return code;
+    if (exists) {
+      return generateUniqueCode();
+    }
+
+    return code;
+  };
+
+  return generateUniqueCode();
 };
 
 /**

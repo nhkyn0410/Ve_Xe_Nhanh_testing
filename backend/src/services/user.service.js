@@ -44,9 +44,9 @@ class UserService {
       'savedPassengers',
     ];
 
-    // Chỉ cập nhật các trường được phép
-    Object.keys(updateData).forEach((key) => {
-      if (allowedUpdates.includes(key)) {
+    // Chỉ cập nhật các trường được phép (iterate allowed keys to avoid object-injection)
+    allowedUpdates.forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(updateData, key)) {
         user[key] = updateData[key];
       }
     });
@@ -82,7 +82,7 @@ class UserService {
         const publicId = publicIdWithExtension.split('.')[0];
         await deleteImage(publicId);
       } catch (error) {
-        logger.error('Error đang xóa old avtạiar: ' + error.message);
+        logger.error(`Error đang xóa old avtạiar: ${error.message}`);
         // Continue even if delete fails
       }
     }
@@ -124,7 +124,7 @@ class UserService {
       const publicId = publicIdWithExtension.split('.')[0];
       await deleteImage(publicId);
     } catch (error) {
-      logger.error('Error đang xóa avtạiar từ Cloudtrtrêngary: ' + error.message);
+      logger.error(`Error đang xóa avtạiar từ Cloudtrtrêngary: ${error.message}`);
     }
 
     // Xóa avatar URL khỏi database

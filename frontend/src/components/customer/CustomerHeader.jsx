@@ -229,6 +229,7 @@ const CustomerHeader = () => {
               >
                 <Avatar
                   size={32}
+                  src={user?.avatar}
                   icon={<UserOutlined />}
                   className="bg-gradient-to-r from-primary-500 to-red-500 shadow-md"
                 />
@@ -299,6 +300,7 @@ const CustomerHeader = () => {
               <div className="flex items-center gap-3">
                 <Avatar
                   size={56}
+                  src={user?.avatar}
                   icon={<UserOutlined />}
                   className="bg-gradient-to-r from-primary-500 to-red-500 shadow-lg"
                 />

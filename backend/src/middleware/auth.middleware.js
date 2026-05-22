@@ -2,7 +2,7 @@ const AuthService = require('../services/auth.service');
 const User = require('../models/User');
 const BusOperator = require('../models/BusOperator');
 const Employee = require('../models/Employee');
-
+const logger = require('../utils/logger');
 /**
  * Check session timeout (30 minutes of inactivity by default)
  * @param {Object} user - User object
@@ -163,28 +163,26 @@ const authenticate = async (req, res, next) => {
  * Sử dụng sau authenticate middleware
  * @param {...String} roles - Danh sách roles được phép
  */
-const authorize = (...roles) => {
-  return (req, res, next) => {
-    // Kiểm tra user đã được authenticate chưa
-    if (!req.user) {
-      return res.status(401).json({
-        status: 'error',
-        message: 'Vui lòng đăng nhập để truy cập',
-      });
-    }
+const authorize = (...roles) => (req, res, next) => {
+  // Kiểm tra user đã được authenticate chưa
+  if (!req.user) {
+    return res.status(401).json({
+      status: 'error',
+      message: 'Vui lòng đăng nhập để truy cập',
+    });
+  }
 
-    // Kiểm tra role - use req.userRole from authenticate middleware
-    // This ensures consistency across different user types (User, BusOperator, Employee)
-    const userRole = req.userRole || req.user.role;
-    if (!roles.includes(userRole)) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Bạn không có quyền truy cập tài nguyên này',
-      });
-    }
+  // Kiểm tra role - use req.userRole from authenticate middleware
+  // This ensures consistency across different user types (User, BusOperator, Employee)
+  const userRole = req.userRole || req.user.role;
+  if (!roles.includes(userRole)) {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Bạn không có quyền truy cập tài nguyên này',
+    });
+  }
 
-    next();
-  };
+  next();
 };
 
 /**

@@ -43,31 +43,40 @@ class SeatLockService {
       const redis = getRedisClient();
       const locked = [];
       const failed = [];
+      const lockKeys = seatNumbers.map((s) => this.getLockKey(tripId, s));
 
-      for (const seatNumber of seatNumbers) {
-        const lockKey = this.getLockKey(tripId, seatNumber);
+      // Attempt to set all locks in parallel
+      const setResults = await Promise.all(lockKeys.map((k) => redis.set(k, userId, { NX: true, EX: duration })));
 
-        // Try to set the lock (NX = only if not exists)
-        const result = await redis.set(lockKey, userId, {
-          NX: true,
-          EX: duration,
-        });
+      const tripLocksKey = this.getTripLocksKey(tripId);
+      const sAddPromises = [];
 
-        if (result === 'OK') {
-          // Successfully locked
-          locked.push(seatNumber);
-
-          // Add to trip's locked seats set (for quick querying)
-          const tripLocksKey = this.getTripLocksKey(tripId);
-          await redis.sAdd(tripLocksKey, seatNumber);
-          await redis.expire(tripLocksKey, duration);
+      // Collect failed indices to fetch owners later
+      const failedIndices = [];
+      for (let i = 0; i < setResults.length; i += 1) {
+        if (setResults[i] === 'OK') {
+          locked.push(seatNumbers[i]);
+          sAddPromises.push(redis.sAdd(tripLocksKey, seatNumbers[i]));
         } else {
-          // Already locked by someone else
-          const lockedBy = await redis.get(lockKey);
+          failedIndices.push(i);
+        }
+      }
+
+      if (sAddPromises.length) {
+        await Promise.all(sAddPromises);
+        await redis.expire(tripLocksKey, duration);
+      }
+
+      if (failedIndices.length) {
+        const failedKeys = failedIndices.map((idx) => lockKeys[idx]);
+        const owners = await Promise.all(failedKeys.map((k) => redis.get(k)));
+        for (let j = 0; j < failedIndices.length; j += 1) {
+          const idx = failedIndices[j];
+          const owner = owners[j];
           failed.push({
-            seatNumber,
-            reason: lockedBy === userId ? 'already_locked_by_you' : 'locked_by_another_user',
-            lockedBy,
+            seatNumber: seatNumbers[idx],
+            reason: owner === userId ? 'already_locked_by_you' : 'locked_by_another_user',
+            lockedBy: owner,
           });
         }
       }
@@ -97,35 +106,29 @@ class SeatLockService {
       const redis = getRedisClient();
       const released = [];
       const failed = [];
+      const lockKeys = seatNumbers.map((s) => this.getLockKey(tripId, s));
+      const owners = await Promise.all(lockKeys.map((k) => redis.get(k)));
 
-      for (const seatNumber of seatNumbers) {
-        const lockKey = this.getLockKey(tripId, seatNumber);
+      const tripLocksKey = this.getTripLocksKey(tripId);
+      const delPromises = [];
+      const sRemPromises = [];
 
-        // Check who locked it
-        const lockedBy = await redis.get(lockKey);
-
-        if (!lockedBy) {
-          failed.push({
-            seatNumber,
-            reason: 'not_locked',
-          });
-        } else if (lockedBy !== userId) {
-          failed.push({
-            seatNumber,
-            reason: 'locked_by_another_user',
-            lockedBy,
-          });
+      for (let i = 0; i < seatNumbers.length; i += 1) {
+        const seatNumber = seatNumbers[i];
+        const owner = owners[i];
+        if (!owner) {
+          failed.push({ seatNumber, reason: 'not_locked' });
+        } else if (owner !== userId) {
+          failed.push({ seatNumber, reason: 'locked_by_another_user', lockedBy: owner });
         } else {
-          // Delete the lock
-          await redis.del(lockKey);
-
-          // Remove from trip's locked seats set
-          const tripLocksKey = this.getTripLocksKey(tripId);
-          await redis.sRem(tripLocksKey, seatNumber);
-
+          delPromises.push(redis.del(lockKeys[i]));
+          sRemPromises.push(redis.sRem(tripLocksKey, seatNumber));
           released.push(seatNumber);
         }
       }
+
+      if (delPromises.length) await Promise.all(delPromises);
+      if (sRemPromises.length) await Promise.all(sRemPromises);
 
       return {
         success: released.length > 0,
@@ -149,11 +152,14 @@ class SeatLockService {
       const redis = getRedisClient();
       const results = {};
 
-      for (const seatNumber of seatNumbers) {
-        const lockKey = this.getLockKey(tripId, seatNumber);
-        const lockedBy = await redis.get(lockKey);
-        const ttl = lockedBy ? await redis.ttl(lockKey) : -2;
+      const lockKeys = seatNumbers.map((s) => this.getLockKey(tripId, s));
+      const owners = await Promise.all(lockKeys.map((k) => redis.get(k)));
+      const ttls = await Promise.all(lockKeys.map((k) => redis.ttl(k)));
 
+      for (let i = 0; i < seatNumbers.length; i += 1) {
+        const seatNumber = seatNumbers[i];
+        const lockedBy = owners[i];
+        const ttl = ttls[i];
         results[seatNumber] = {
           isLocked: !!lockedBy,
           lockedBy: lockedBy || null,
@@ -201,26 +207,24 @@ class SeatLockService {
       const extended = [];
       const failed = [];
 
-      for (const seatNumber of seatNumbers) {
-        const lockKey = this.getLockKey(tripId, seatNumber);
-        const lockedBy = await redis.get(lockKey);
+      const lockKeys = seatNumbers.map((s) => this.getLockKey(tripId, s));
+      const owners = await Promise.all(lockKeys.map((k) => redis.get(k)));
 
-        if (!lockedBy) {
-          failed.push({
-            seatNumber,
-            reason: 'not_locked',
-          });
-        } else if (lockedBy !== userId) {
-          failed.push({
-            seatNumber,
-            reason: 'locked_by_another_user',
-          });
+      const expirePromises = [];
+      for (let i = 0; i < seatNumbers.length; i += 1) {
+        const seatNumber = seatNumbers[i];
+        const owner = owners[i];
+        if (!owner) {
+          failed.push({ seatNumber, reason: 'not_locked' });
+        } else if (owner !== userId) {
+          failed.push({ seatNumber, reason: 'locked_by_another_user' });
         } else {
-          // Extend TTL
-          await redis.expire(lockKey, duration);
+          expirePromises.push(redis.expire(lockKeys[i], duration));
           extended.push(seatNumber);
         }
       }
+
+      if (expirePromises.length) await Promise.all(expirePromises);
 
       return {
         success: extended.length > 0,
@@ -248,14 +252,16 @@ class SeatLockService {
       const allSeats = await redis.sMembers(tripLocksKey);
 
       let cleaned = 0;
-      for (const seatNumber of allSeats) {
-        const lockKey = this.getLockKey(tripId, seatNumber);
-        const exists = await redis.exists(lockKey);
-
-        if (!exists) {
-          // Lock expired, remove from set
-          await redis.sRem(tripLocksKey, seatNumber);
-          cleaned++;
+      if (allSeats && allSeats.length) {
+        const lockKeys = allSeats.map((s) => this.getLockKey(tripId, s));
+        const existsResults = await Promise.all(lockKeys.map((k) => redis.exists(k)));
+        const toRemove = [];
+        for (let i = 0; i < existsResults.length; i += 1) {
+          if (!existsResults[i]) toRemove.push(allSeats[i]);
+        }
+        if (toRemove.length) {
+          await Promise.all(toRemove.map((s) => redis.sRem(tripLocksKey, s)));
+          cleaned = toRemove.length;
         }
       }
 
@@ -277,14 +283,12 @@ class SeatLockService {
       const redis = getRedisClient();
       const tripLocksKey = this.getTripLocksKey(tripId);
       const allSeats = await redis.sMembers(tripLocksKey);
-
       const userSeats = [];
-      for (const seatNumber of allSeats) {
-        const lockKey = this.getLockKey(tripId, seatNumber);
-        const lockedBy = await redis.get(lockKey);
-
-        if (lockedBy === userId) {
-          userSeats.push(seatNumber);
+      if (allSeats && allSeats.length) {
+        const lockKeys = allSeats.map((s) => this.getLockKey(tripId, s));
+        const owners = await Promise.all(lockKeys.map((k) => redis.get(k)));
+        for (let i = 0; i < owners.length; i += 1) {
+          if (owners[i] === userId) userSeats.push(allSeats[i]);
         }
       }
 
@@ -313,7 +317,7 @@ class SeatLockService {
         };
       }
 
-      return await this.releaseSeats(tripId, userSeats, userId);
+      return this.releaseSeats(tripId, userSeats, userId);
     } catch (error) {
       logger.error('Lỗi giải phóng tất cả các khóa người dùng:', error);
       throw new Error('Không thể mở khóa tất cả ghế.');
