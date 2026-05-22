@@ -67,11 +67,6 @@ async function clearData() {
   logger.success('Đã xóa sạch dữ liệu cũ.');
 }
 
-  return createdDocs;
-};
-
-
-
 // Enhanced seed data with full journey tracking
 const seedData = async () => {
   try {
@@ -412,4 +407,4 @@ const seedData = async () => {
   }
 }
 
-seed();
+seedData();
