@@ -361,30 +361,32 @@ Trước khi vận hành production, hệ thống cần chốt chính sách audi
 
 ## 3.4. Phân tích chức năng hệ thống
 
-### 3.4.1. Nhóm chức năng theo miền nghiệp vụ
+Mục 3.3 đã nêu yêu cầu chức năng và phi chức năng theo dạng có thể kiểm chứng. Mục 3.4 vì vậy không lặp lại toàn bộ yêu cầu, mà dùng để gom các yêu cầu thành miền chức năng, xác định ranh giới trách nhiệm và chuẩn bị nền phân tích trước khi chuyển sang sơ đồ use case ở mục 3.5.
 
-| Mã nhóm | Nhóm chức năng             | Actor chính                            | Mô tả phạm vi                                                                                             |
-| ------- | -------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| FN-IAM  | Tài khoản và xác thực      | Guest, User, Operator, Employee, Admin | Đăng ký/đăng nhập, quản lý phiên, quản lý hồ sơ, khóa/mở khóa tài khoản và phân quyền.                    |
-| FN-MKT  | Marketplace đặt vé         | Guest, User                            | Tìm chuyến, xem chi tiết, so sánh, chọn ghế, nhập thông tin hành khách và tạo booking.                    |
-| FN-BTP  | Booking - Ticket - Payment | Guest, User, System                    | Giữ ghế, thanh toán, xác nhận booking, phát hành vé điện tử, tra cứu vé, hủy vé và hoàn tiền.             |
-| FN-OPR  | Operator OS                | Operator                               | Quản lý hồ sơ nhà xe, route, stop point, bus, seat layout, trip, employee, voucher, giao dịch và báo cáo. |
-| FN-EMP  | Vận hành chuyến            | Employee                               | Xem chuyến được phân công, danh sách hành khách, quét QR/mã vé và cập nhật trạng thái vận hành.           |
-| FN-ADM  | Quản trị nền tảng          | Admin                                  | Quản lý người dùng, nhà xe, nội dung, đánh giá, khiếu nại, voucher, giao dịch và báo cáo hệ thống.        |
-| FN-NSR  | Hỗ trợ và tin cậy          | User, Guest, Operator, Admin           | Đánh giá, khiếu nại, phản hồi, thông báo, kiểm duyệt và xử lý ngoại lệ.                                   |
+### 3.4.1. Bản đồ miền chức năng và truy vết yêu cầu
 
-### 3.4.2. Quan hệ chức năng theo vòng đời giao dịch
+| Mã nhóm | Miền chức năng                    | Actor liên quan                        | Phạm vi phân tích                                                                                                                                                                             | Yêu cầu liên quan                      |
+| ------- | --------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| FN-IAM  | Tài khoản, xác thực và phân quyền | Guest, User, Operator, Employee, Admin | Quản lý tài khoản, phiên đăng nhập, vai trò, trạng thái tài khoản và phạm vi dữ liệu được phép truy cập.                                                                                      | FR-IAM, NFR-SEC                        |
+| FN-MKT  | Marketplace tìm chuyến và đặt vé  | Guest, User                            | Tìm kiếm, so sánh, xem chi tiết chuyến và thu thập lựa chọn đặt vé ở phía hành khách.                                                                                                         | FR-MKT, NFR-UX                         |
+| FN-BTP  | Booking, ghế, thanh toán và vé    | Guest, User, System                    | Kiểm tra/giữ ghế, tạo booking, xử lý payment, phát hành vé, hủy vé và hoàn tiền.                                                                                                              | FR-BTP, NFR-DATA, NFR-AVAIL, NFR-AUDIT |
+| FN-OPR  | Vận hành nhà xe                   | Operator, System                       | Quản lý hồ sơ nhà xe, tuyến, điểm dừng, xe, sơ đồ ghế, chuyến, nhân viên, voucher, giao dịch và báo cáo.                                                                                      | FR-OPR, NFR-SCALE, NFR-MAINT           |
+| FN-EMP  | Vận hành chuyến                   | Employee, System                       | Xem chuyến được phân công, danh sách hành khách, xác thực vé bằng QR/mã vé và cập nhật check-in.                                                                                              | FR-EMP, NFR-SEC, NFR-PRIV              |
+| FN-ADM  | Quản trị nền tảng                 | Admin                                  | Quản lý người dùng, nhà xe, giao dịch, voucher, nội dung, báo cáo và các xử lý can thiệp cấp Platform.                                                                                        | FR-ADM, NFR-AUDIT                      |
+| FN-NSR  | Hỗ trợ, thông báo và tin cậy      | User, Guest, Operator, Admin, System   | Gửi thông báo, tiếp nhận hỗ trợ/khiếu nại, kiểm duyệt đánh giá và xử lý ngoại lệ sau giao dịch. Guest chỉ được tạo hỗ trợ/khiếu nại sau khi xác minh dữ liệu vé; đánh giá thuộc phạm vi User. | FR-NSR, NFR-UX, NFR-PRIV               |
 
-| Giai đoạn       | Đầu vào                                              | Xử lý chính                                                    | Kết quả đầu ra                      |
-| --------------- | ---------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------- |
-| Tìm kiếm        | Điểm đi, điểm đến, ngày đi, số khách                 | Lọc chuyến đang mở bán, còn ghế và phù hợp điều kiện tìm kiếm  | Danh sách chuyến có thể đặt         |
-| Chọn chuyến     | Chuyến được chọn                                     | Hiển thị thông tin chi tiết, giá, điểm đón/trả, tiện ích, ghế  | Cơ sở để chọn ghế                   |
-| Giữ ghế         | Ghế được chọn                                        | Kiểm tra trạng thái ghế và giữ tạm thời                        | Ghế tạm khóa cho phiên đặt vé       |
-| Tạo booking     | Thông tin hành khách, liên hệ, điểm đón/trả, voucher | Tính tiền, lưu thông tin đặt vé, tạo trạng thái chờ thanh toán | Booking hợp lệ để thanh toán        |
-| Thanh toán      | Booking và phương thức thanh toán                    | Tạo giao dịch, nhận kết quả thanh toán, cập nhật trạng thái    | Booking được xác nhận hoặc thất bại |
-| Phát hành vé    | Booking đã đủ điều kiện                              | Tạo vé điện tử, mã vé, QR và thông báo                         | Vé sẵn sàng cho hành khách          |
-| Vận hành chuyến | Vé và danh sách hành khách                           | Employee kiểm tra QR/mã vé và cập nhật check-in                | Hành khách được xác nhận lên xe     |
-| Hậu mãi         | Vé/booking đã phát sinh                              | Tra cứu, hủy vé, hoàn tiền, đánh giá, khiếu nại                | Trạng thái hậu mãi được ghi nhận    |
+### 3.4.2. Chuỗi chức năng trong vòng đời giao dịch
+
+| Giai đoạn              | Miền chịu trách nhiệm chính | Đầu vào                                                     | Xử lý chính                                                                                                                          | Kết quả đầu ra                                                                |
+| ---------------------- | --------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Tìm kiếm               | FN-MKT                      | Điểm đi, điểm đến, ngày đi, số khách                        | Lọc chuyến đang mở bán, còn ghế và phù hợp điều kiện tìm kiếm.                                                                       | Danh sách chuyến có thể đặt.                                                  |
+| Xem và chọn chuyến     | FN-MKT                      | Chuyến được chọn                                            | Hiển thị chi tiết tuyến, nhà xe, giá, điểm đón/trả, tiện ích và tình trạng ghế.                                                      | Cơ sở để chọn ghế và tiếp tục đặt vé.                                         |
+| Giữ ghế                | FN-BTP                      | Ghế được chọn và phiên đặt vé                               | Kiểm tra trạng thái ghế mới nhất, tạo giữ chỗ tạm thời có thời hạn và chống đặt trùng.                                               | Ghế tạm khóa cho phiên đặt vé hợp lệ.                                         |
+| Tạo booking            | FN-MKT, FN-BTP              | Thông tin hành khách, liên hệ, điểm đón/trả, voucher        | Tính tiền, kiểm tra điều kiện giao dịch và lưu booking ở trạng thái chờ thanh toán hoặc chờ xác nhận phù hợp phương thức thanh toán. | Booking hợp lệ để thanh toán hoặc xử lý tiếp.                                 |
+| Thanh toán và callback | FN-BTP                      | Booking, phương thức thanh toán, kết quả từ cổng thanh toán | Tạo payment, xác thực kết quả thanh toán, chống xử lý trùng và cập nhật trạng thái payment/booking/ghế.                              | Booking được xác nhận, thất bại hoặc cần xử lý lại theo trạng thái giao dịch. |
+| Phát hành vé           | FN-BTP, FN-NSR              | Booking đã đủ điều kiện phát hành                           | Tạo vé điện tử, mã vé, QR và gửi/ghi nhận thông báo cho hành khách.                                                                  | Vé sẵn sàng để tra cứu và sử dụng.                                            |
+| Vận hành chuyến        | FN-EMP, FN-OPR              | Vé, chuyến và danh sách hành khách                          | Employee kiểm tra QR/mã vé, xác thực vé phía server và cập nhật check-in.                                                            | Hành khách được xác nhận lên xe hoặc bị từ chối theo lý do nghiệp vụ.         |
+| Hậu mãi và hỗ trợ      | FN-BTP, FN-NSR, FN-ADM      | Vé/booking đã phát sinh, yêu cầu hỗ trợ hoặc khiếu nại      | Tra cứu, hủy vé, ghi nhận hoàn tiền, tiếp nhận đánh giá/khiếu nại và xử lý ngoại lệ theo quyền.                                      | Trạng thái hậu mãi được ghi nhận và có thể truy vết.                          |
 
 ## 3.5. Sơ đồ Use Case tổng quan
 
@@ -1199,17 +1201,104 @@ flowchart TB
 
 Tầng giao diện dùng React, React Router, Zustand, Ant Design và Tailwind CSS. Tầng này hiển thị dữ liệu, thu thập input, giữ trạng thái tạm thời của luồng đặt vé, gọi API qua các service Axios và điều hướng theo vai trò.
 
+```mermaid
+flowchart LR
+    subgraph UI["Tầng giao diện React"]
+        Routes["React Router\nCustomer / Operator / Trip-manager / Admin"]
+        Pages["Pages\nMàn hình theo actor"]
+        Components["Components\nLayout, form, modal, table, seat map"]
+        Stores["Zustand Stores\nAuth, booking, operator, admin"]
+        ApiServices["Axios Services\nTrip, booking, payment, ticket"]
+    end
+
+    Routes --> Pages
+    Pages --> Components
+    Pages --> Stores
+    Stores --> ApiServices
+    Components --> Stores
+    ApiServices --> Backend["Backend API"]
+```
+
 ### 5.2.2. Tầng xử lý nghiệp vụ
 
 Tầng nghiệp vụ nằm trong controllers và services của backend. Controllers đóng vai trò tiếp nhận request/response; services xử lý logic xác thực, đặt vé, giữ ghế, thanh toán, vé điện tử, tuyến, xe, chuyến, nhà xe, nhân viên, đánh giá, khiếu nại, voucher, dashboard và báo cáo.
+
+```mermaid
+flowchart TB
+    Request["HTTP Request từ frontend"]
+    Routes["Express Routes"]
+    Middleware["Middleware\nAuth, RBAC, validation, rate limit"]
+    Controllers["Controllers\nChuẩn hóa input/output"]
+    Services["Business Services\nAuth, trip, booking, payment, ticket"]
+    Policies["Business Rules\nSeat hold, payment status, tenant scope"]
+    DataAccess["Model/Repository Access"]
+
+    Request --> Routes
+    Routes --> Middleware
+    Middleware --> Controllers
+    Controllers --> Services
+    Services --> Policies
+    Policies --> DataAccess
+    DataAccess --> Services
+    Services --> Controllers
+```
 
 ### 5.2.3. Tầng dữ liệu
 
 Tầng dữ liệu dùng MongoDB và Mongoose. Các collection chính được tổ chức theo actor và miền nghiệp vụ, trong đó `operatorId`, `tripId`, `bookingId`, `customerId` và các trường trạng thái là khóa truy vết quan trọng. Redis được dùng cho trạng thái tạm thời như khóa ghế theo TTL.
 
+```mermaid
+flowchart TB
+    Services["Backend Services"]
+
+    subgraph Mongo["MongoDB qua Mongoose"]
+        Identity["User / Operator / Employee / Admin"]
+        Supply["Route / StopPoint / Bus / SeatLayout / Trip"]
+        Transaction["Booking / Payment / Ticket / SeatHold"]
+        Trust["Review / Complaint / Voucher / Content"]
+        Audit["Log / Report snapshots"]
+    end
+
+    subgraph Redis["Redis"]
+        SeatLock["Seat lock TTL"]
+        Cache["Cache / temporary session state"]
+        RealtimeState["Realtime helper state"]
+    end
+
+    Services --> Identity
+    Services --> Supply
+    Services --> Transaction
+    Services --> Trust
+    Services --> Audit
+    Services --> SeatLock
+    Services --> Cache
+    Services --> RealtimeState
+```
+
 ### 5.2.4. Tầng tích hợp dịch vụ ngoài
 
 Tầng tích hợp gồm VNPay, email/SMS, Cloudinary, Socket.IO và scheduler jobs. Các thành phần này được gọi từ service thay vì từ UI trực tiếp, giúp hệ thống kiểm soát lỗi tích hợp, xử lý retry và thay đổi provider thuận lợi hơn.
+
+```mermaid
+flowchart LR
+    Services["Backend Services"]
+    Adapter["Integration Adapter\nKý request, map response, xử lý lỗi"]
+
+    subgraph Providers["Dịch vụ ngoài và tác vụ nền"]
+        VNPay["VNPay\nPayment URL / callback"]
+        Notify["Email / SMS\nThông báo vé và trạng thái"]
+        Cloudinary["Cloudinary\nLưu trữ ảnh/tệp"]
+        SocketIO["Socket.IO\nRealtime seat/trip updates"]
+        Scheduler["Scheduler Jobs\nHết hạn giữ ghế, tác vụ định kỳ"]
+    end
+
+    Services --> Adapter
+    Adapter --> VNPay
+    Adapter --> Notify
+    Adapter --> Cloudinary
+    Adapter --> SocketIO
+    Scheduler --> Services
+```
 
 ## 5.3. Thiết kế module chức năng
 
@@ -1287,29 +1376,141 @@ Các luồng dưới đây là xương sống của hệ thống, bắt đầu t
 
 User, Operator, Employee và Admin có luồng đăng nhập riêng. Sau khi xác thực thành công, frontend lưu token theo store tương ứng và các request cần quyền sẽ gắn token vào header. Backend kiểm tra actor, trạng thái tài khoản và phạm vi quyền trước khi cho phép truy cập dữ liệu.
 
+```mermaid
+flowchart TD
+    A[Actor mở khu vực xác thực] --> B{Loại actor}
+    B -- User --> C[Customer auth page]
+    B -- Operator --> D[Operator auth page]
+    B -- Employee --> E[Trip-manager login]
+    B -- Admin --> F[Admin login]
+    C --> G[Backend xác thực thông tin]
+    D --> G
+    E --> G
+    F --> G
+    G --> H{Tài khoản hợp lệ và đúng phạm vi?}
+    H -- Không --> I[Trả lỗi xác thực hoặc trạng thái tài khoản]
+    H -- Có --> J[Cấp token và profile phiên]
+    J --> K[Frontend lưu vào store tương ứng]
+    K --> L[Route guard cho phép truy cập khu vực phù hợp]
+```
+
 ### 5.5.2. Luồng tìm kiếm chuyến xe
 
 Customer nhập điểm đi, điểm đến, khoảng ngày và số hành khách. Frontend gọi API search trip. Backend lọc trip còn lịch, còn ghế, phù hợp ngày/giá/loại xe/operator, populate route, bus, operator rồi trả về danh sách để frontend hiển thị.
+
+```mermaid
+flowchart TD
+    A[Customer nhập tiêu chí tìm kiếm] --> B[Frontend chuẩn hóa form]
+    B --> C[Trip API nhận request]
+    C --> D[Trip Service kiểm tra điểm đi, điểm đến, ngày, số khách]
+    D --> E[Truy vấn trip đang mở bán]
+    E --> F[Populate route, bus, operator]
+    F --> G[Lọc còn ghế và điều kiện hiển thị]
+    G --> H{Có chuyến phù hợp?}
+    H -- Không --> I[Frontend hiển thị trạng thái rỗng]
+    H -- Có --> J[Frontend hiển thị danh sách chuyến]
+    J --> K[Customer lọc, sắp xếp hoặc chọn chuyến]
+```
 
 ### 5.5.3. Luồng chọn ghế và giữ ghế
 
 Frontend lấy sơ đồ ghế và trạng thái ghế của chuyến. Khi khách chọn ghế và tiếp tục, backend kiểm tra ghế đã bán trong `Trip`, sau đó khóa ghế tạm bằng Redis với thời hạn 15 phút và tạo booking ở trạng thái chờ. Nếu khách không thanh toán hoặc chủ động giải phóng giữ chỗ, khóa ghế được xóa hoặc tự hết hạn.
 
+```mermaid
+flowchart TD
+    A[Customer mở chi tiết chuyến] --> B[Frontend lấy sơ đồ ghế và trạng thái hiện tại]
+    B --> C[Customer chọn ghế khả dụng]
+    C --> D[Frontend gửi yêu cầu giữ ghế]
+    D --> E[Backend kiểm tra trip và ghế đã bán]
+    E --> F{Ghế còn khả dụng?}
+    F -- Không --> G[Trả lỗi và yêu cầu chọn ghế khác]
+    F -- Có --> H[Tạo khóa ghế tạm trong Redis]
+    H --> I[Tạo hoặc cập nhật booking pending]
+    I --> J[Trả thời hạn giữ ghế cho frontend]
+    J --> K{Khách tiếp tục thanh toán đúng hạn?}
+    K -- Không --> L[Giải phóng khóa ghế khi hủy hoặc hết TTL]
+    K -- Có --> M[Chuyển sang nhập thông tin và thanh toán]
+```
+
 ### 5.5.4. Luồng đặt vé và thanh toán
 
 Khách nhập thông tin liên hệ, hành khách, điểm đón/trả và voucher. Backend kiểm tra booking, tính tiền, tạo payment. Với VNPay, hệ thống trả URL thanh toán; callback thành công cập nhật payment completed, booking paid/confirmed, ghế booked và phát hành ticket. Với cash, backend xác nhận booking và giữ trạng thái payment pending cho xác nhận tiền mặt.
+
+```mermaid
+flowchart TD
+    A[Customer nhập thông tin hành khách và liên hệ] --> B[Frontend gửi xác nhận booking]
+    B --> C[Backend kiểm tra booking pending và khóa ghế]
+    C --> D[Áp dụng điểm đón/trả, voucher và tính tổng tiền]
+    D --> E{Phương thức thanh toán}
+    E -- VNPay --> F[Tạo payment pending và URL thanh toán]
+    F --> G[Customer thanh toán trên VNPay]
+    G --> H[Backend nhận return/callback]
+    H --> I{Chữ ký và số tiền hợp lệ?}
+    I -- Không --> J[Đánh dấu thất bại hoặc chờ đối soát]
+    I -- Có --> K[Cập nhật payment completed và booking confirmed]
+    E -- Cash --> L[Xác nhận booking theo chính sách tiền mặt]
+    L --> M[Giữ payment pending hoặc trạng thái cần thu tiền]
+    K --> N[Đánh dấu ghế booked và chuyển phát hành vé]
+    M --> N
+```
 
 ### 5.5.5. Luồng phát hành vé điện tử
 
 Sau payment/booking hợp lệ, hệ thống tạo ticket code, QR code, snapshot thông tin chuyến/hành khách và gửi thông báo. Vé được dùng cho tra cứu, hiển thị trong "Vé của tôi" và quét QR khi lên xe.
 
+```mermaid
+flowchart TD
+    A[Booking đủ điều kiện phát hành] --> B[Ticket Service tạo mã vé]
+    B --> C[Tạo QR code hoặc QR payload]
+    C --> D[Lưu snapshot chuyến, ghế, hành khách, điểm đón/trả]
+    D --> E[Cập nhật trạng thái ticket và booking]
+    E --> F[Gửi thông báo qua email/SMS nếu cấu hình sẵn]
+    F --> G[Vé hiển thị trong Vé của tôi hoặc tra cứu khách vãng lai]
+    G --> H[Vé sẵn sàng cho quét QR khi lên xe]
+```
+
 ### 5.5.6. Luồng quét QR và xác nhận hành khách
 
 Employee mở giao diện quét QR, hệ thống đọc ticket code/QR data, kiểm tra ticket còn hợp lệ, đúng chuyến, chưa dùng và chưa hết hạn. Nếu hợp lệ, ticket được đánh dấu used, lưu thời điểm và người xác thực.
 
+```mermaid
+flowchart TD
+    A[Employee mở cổng trip-manager] --> B[Chọn chuyến được phân công]
+    B --> C[Mở màn hình quét QR hoặc nhập mã vé]
+    C --> D[Backend xác thực quyền Employee với chuyến]
+    D --> E[Ticket Service tìm vé theo QR/mã vé]
+    E --> F{Vé hợp lệ?}
+    F -- Không --> G[Từ chối và hiển thị lý do nghiệp vụ]
+    F -- Có --> H{Đúng chuyến và chưa sử dụng?}
+    H -- Không --> G
+    H -- Có --> I[Cập nhật ticket used/check-in]
+    I --> J[Lưu thời điểm và người xác thực]
+    J --> K[Cập nhật danh sách hành khách realtime]
+```
+
 ### 5.5.7. Luồng hủy vé và hoàn tiền
 
 Customer hoặc Guest gửi yêu cầu hủy kèm booking code/thông tin xác minh. Backend kiểm tra quyền sở hữu, trạng thái booking, cập nhật booking/ticket, giải phóng ghế nếu còn phù hợp và xử lý refund nếu payment đã paid. Admin/operator có thể tham gia khi cần xử lý complaint/refund thủ công.
+
+```mermaid
+flowchart TD
+    A[Customer hoặc Guest gửi yêu cầu hủy] --> B[Backend xác minh quyền sở hữu hoặc thông tin tra cứu]
+    B --> C{Booking/ticket đủ điều kiện hủy?}
+    C -- Không --> D[Từ chối và trả lý do]
+    C -- Có --> E[Tính chính sách hủy và khoản hoàn]
+    E --> F[Cập nhật booking/ticket sang trạng thái hủy]
+    F --> G{Ghế có thể giải phóng?}
+    G -- Có --> H[Cập nhật lại trạng thái ghế]
+    G -- Không --> I[Giữ trạng thái ghế theo rule vận hành]
+    H --> J{Payment đã thanh toán?}
+    I --> J
+    J -- Không --> K[Kết thúc hủy không hoàn tiền online]
+    J -- Có --> L[Tạo hoặc ghi nhận yêu cầu refund]
+    L --> M{Cần xử lý thủ công?}
+    M -- Có --> N[Operator/Admin xử lý ngoại lệ hoặc khiếu nại]
+    M -- Không --> O[Cập nhật refund và thông báo kết quả]
+    N --> O
+```
 
 ## 5.6. Sơ đồ xác thực theo khu vực sử dụng
 
