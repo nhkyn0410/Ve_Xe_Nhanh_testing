@@ -16,6 +16,16 @@ const BusOperator = require('../src/models/BusOperator');
 const StopPoint = require('../src/models/StopPoint');
 
 const DEFAULT_COUNT = 200;
+const SEED_OPERATOR_EMAILS = [
+  'seed.operator.sve@vexenhanh.vn',
+  'seed.operator.npl@vexenhanh.vn',
+  'seed.operator.mpx@vexenhanh.vn',
+  'seed.operator.bdl@vexenhanh.vn',
+  'seed.operator.hvl@vexenhanh.vn',
+  'seed.operator.thb@vexenhanh.vn',
+  'seed.operator.dnx@vexenhanh.vn',
+  'seed.operator.mta@vexenhanh.vn',
+];
 
 const TYPE_CYCLE = [
   'bus_station',
@@ -178,17 +188,43 @@ function buildStop(operatorId, index) {
   };
 }
 
+async function findTargetOperators() {
+  const baseFilter = {
+    verificationStatus: 'approved',
+    isActive: true,
+    isSuspended: false,
+  };
+  const seedOrder = new Map(SEED_OPERATOR_EMAILS.map((email, index) => [email, index]));
+  const seedOperators = await BusOperator.find({
+    ...baseFilter,
+    email: { $in: SEED_OPERATOR_EMAILS },
+  });
+
+  seedOperators.sort(
+    (left, right) =>
+      (seedOrder.get(left.email) ?? Number.MAX_SAFE_INTEGER) -
+      (seedOrder.get(right.email) ?? Number.MAX_SAFE_INTEGER)
+  );
+
+  const remainingLimit = Math.max(0, 30 - seedOperators.length);
+  const otherOperators =
+    remainingLimit > 0
+      ? await BusOperator.find({
+          ...baseFilter,
+          _id: { $nin: seedOperators.map((operator) => operator._id) },
+        })
+          .sort({ createdAt: 1 })
+          .limit(remainingLimit)
+      : [];
+
+  return [...seedOperators, ...otherOperators];
+}
+
 async function seedStopPoints() {
   const targetCount = getCountArg();
   await connectDB();
 
-  const operators = await BusOperator.find({
-    verificationStatus: 'approved',
-    isActive: true,
-    isSuspended: false,
-  })
-    .sort({ createdAt: 1 })
-    .limit(30);
+  const operators = await findTargetOperators();
 
   if (!operators.length) {
     throw new Error('Không có nhà xe approved. Hãy chạy seed chính trước khi seed stop_points.');
